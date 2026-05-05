@@ -1,17 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
+import { useFocusSession } from '../hooks/useFocusSession';
+import { formatMinutesToHours } from '../utils/timeFormat';
 
-export default function HomeScreen() {
-  const [activeSession, setActiveSession] = useState(false);
+// TODO: Replace with actual UUID from your Supabase users table
+// Run: SELECT id FROM users WHERE username = 'TestUser';
+const MOCK_USER_ID = 'YOUR_UUID_HERE';
+
+export default function HomeScreen({ navigation }: any) {
   const [selectedDuration, setSelectedDuration] = useState(30);
+  const {
+    currentSession,
+    todayTotal,
+    weeklyTotals,
+    startSession,
+    completeSession,
+    cancelSession,
+    isLoading,
+  } = useFocusSession(MOCK_USER_ID);
+
+  const handleStartFocus = () => {
+    startSession(selectedDuration, []);
+    navigation.navigate('FocusSession', {
+      duration: selectedDuration,
+      onComplete: completeSession,
+      onCancel: cancelSession,
+    });
+  };
+
+  const handleCompleteFocus = () => {
+    if (currentSession) {
+      completeSession();
+    }
+  };
+
+  const userRank = weeklyTotals.findIndex(
+    (score) => score.user_id === MOCK_USER_ID
+  );
+  const userWeeklyTotal = weeklyTotals.find(
+    (score) => score.user_id === MOCK_USER_ID
+  )?.total_focus_minutes || 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.greeting}>Ready to focus? 🎯</Text>
 
-      <Card title="Start Focus Session" subtitle="Block distractions and get in the zone">
+      <Card
+        title={currentSession ? 'Session Active' : 'Start Focus Session'}
+        subtitle={currentSession ? 'You are in focus mode' : 'Block distractions and get in the zone'}
+      >
         <Text style={styles.label}>Choose duration:</Text>
         <View style={styles.presets}>
           {FOCUS_PRESETS.map((preset) => (
@@ -20,25 +59,34 @@ export default function HomeScreen() {
               title={preset.label}
               variant={selectedDuration === preset.minutes ? 'primary' : 'outline'}
               onPress={() => setSelectedDuration(preset.minutes)}
+              disabled={!!currentSession || isLoading}
             />
           ))}
         </View>
         <View style={styles.spacer} />
         <Button
-          title={activeSession ? 'End Session' : 'Start Focusing'}
-          variant={activeSession ? 'secondary' : 'primary'}
-          onPress={() => setActiveSession(!activeSession)}
+          title={currentSession ? 'Session Running' : 'Start Focusing'}
+          variant={currentSession ? 'secondary' : 'primary'}
+          onPress={currentSession ? handleCompleteFocus : handleStartFocus}
+          disabled={isLoading}
         />
       </Card>
 
       <Card title="Today's Progress" subtitle="Keep it up!">
-        <Text style={styles.stat}>🔥 0 min focused today</Text>
-        <Text style={styles.stat}>📅 0 sessions completed</Text>
+        <Text style={styles.stat}>🔥 {formatMinutesToHours(todayTotal)} focused today</Text>
+        <Text style={styles.stat}>📅 {todayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
       </Card>
 
-      <Card title="Weekly Rank" subtitle="#1 — That's you! (for now)">
-        <Text style={styles.stat}>🏆 You: 0 min</Text>
-        <Text style={styles.stat}>Add friends to compete!</Text>
+      <Card
+        title="Weekly Rank"
+        subtitle={userRank >= 0 ? `#${userRank + 1}` : 'Not ranked yet'}
+      >
+        <Text style={styles.stat}>🏆 You: {formatMinutesToHours(userWeeklyTotal)}</Text>
+        <Text style={styles.stat}>
+          {weeklyTotals.length > 1
+            ? `${weeklyTotals.length - 1} friends competing!`
+            : 'Add friends to compete!'}
+        </Text>
       </Card>
     </ScrollView>
   );
