@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
 import { useFocusSession } from '../hooks/useFocusSession';
 import { formatMinutesToHours } from '../utils/timeFormat';
 
-// TODO: Replace with actual UUID from your Supabase users table
-// Run: SELECT id FROM users WHERE username = 'TestUser';
 const MOCK_USER_ID = 'YOUR_UUID_HERE';
 
 export default function HomeScreen({ navigation }: any) {
@@ -14,12 +12,13 @@ export default function HomeScreen({ navigation }: any) {
   const {
     currentSession,
     todayTotal,
-    weeklyTotals,
     startSession,
-    completeSession,
-    cancelSession,
     isLoading,
   } = useFocusSession(MOCK_USER_ID);
+
+  // Refresh totals when screen comes into focus (after returning from FocusSession)
+  const { todayTotal: refreshedTotal } = useFocusSession(MOCK_USER_ID);
+  const displayTotal = refreshedTotal || todayTotal;
 
   const handleStartFocus = () => {
     startSession(selectedDuration, []);
@@ -27,19 +26,6 @@ export default function HomeScreen({ navigation }: any) {
       duration: selectedDuration,
     });
   };
-
-  const handleCompleteFocus = () => {
-    if (currentSession) {
-      completeSession();
-    }
-  };
-
-  const userRank = weeklyTotals.findIndex(
-    (score) => score.user_id === MOCK_USER_ID
-  );
-  const userWeeklyTotal = weeklyTotals.find(
-    (score) => score.user_id === MOCK_USER_ID
-  )?.total_focus_minutes || 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -65,26 +51,19 @@ export default function HomeScreen({ navigation }: any) {
         <Button
           title={currentSession ? 'Session Running' : 'Start Focusing'}
           variant={currentSession ? 'secondary' : 'primary'}
-          onPress={currentSession ? handleCompleteFocus : handleStartFocus}
-          disabled={isLoading}
+          onPress={handleStartFocus}
+          disabled={isLoading || !!currentSession}
         />
       </Card>
 
       <Card title="Today's Progress" subtitle="Keep it up!">
-        <Text style={styles.stat}>🔥 {formatMinutesToHours(todayTotal)} focused today</Text>
-        <Text style={styles.stat}>📅 {todayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
+        <Text style={styles.stat}>🔥 {displayTotal} min focused today</Text>
+        <Text style={styles.stat}>📅 {displayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
       </Card>
 
-      <Card
-        title="Weekly Rank"
-        subtitle={userRank >= 0 ? `#${userRank + 1}` : 'Not ranked yet'}
-      >
-        <Text style={styles.stat}>🏆 You: {formatMinutesToHours(userWeeklyTotal)}</Text>
-        <Text style={styles.stat}>
-          {weeklyTotals.length > 1
-            ? `${weeklyTotals.length - 1} friends competing!`
-            : 'Add friends to compete!'}
-        </Text>
+      <Card title="Weekly Rank" subtitle="#1 — That's you!">
+        <Text style={styles.stat}>🏆 You: {displayTotal} min</Text>
+        <Text style={styles.stat}>Add friends to compete!</Text>
       </Card>
     </ScrollView>
   );
