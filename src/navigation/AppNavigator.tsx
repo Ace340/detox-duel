@@ -1,9 +1,12 @@
 import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { COLORS } from '../constants/theme';
+import { useAuth } from '../hooks/useAuth';
+import AuthScreen from '../screens/AuthScreen';
 import HomeScreen from '../screens/HomeScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import FriendsScreen from '../screens/FriendsScreen';
@@ -52,26 +55,42 @@ function TabNavigator() {
   );
 }
 
+function AppStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: COLORS.background },
+        headerTintColor: COLORS.text,
+      }}
+    >
+      <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="FocusSession"
+        component={FocusSessionScreen as React.ComponentType<any>}
+        options={{ title: 'Focus Session', headerShown: false }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: COLORS.background },
-          headerTintColor: COLORS.text,
-        }}
-      >
-        <Stack.Screen
-          name="Tabs"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="FocusSession"
-          component={FocusSessionScreen as React.ComponentType<any>}
-          options={{ title: 'Focus Session', headerShown: false }}
-        />
-      </Stack.Navigator>
+      {session ? <AppStack /> : <AuthScreen />}
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+});

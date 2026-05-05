@@ -1,24 +1,19 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
 import { useFocusSession } from '../hooks/useFocusSession';
-import { formatMinutesToHours } from '../utils/timeFormat';
-
-const MOCK_USER_ID = 'YOUR_UUID_HERE';
+import { useAuth } from '../hooks/useAuth';
 
 export default function HomeScreen({ navigation }: any) {
+  const { user } = useAuth();
   const [selectedDuration, setSelectedDuration] = useState(30);
   const {
     currentSession,
     todayTotal,
     startSession,
     isLoading,
-  } = useFocusSession(MOCK_USER_ID);
-
-  // Refresh totals when screen comes into focus (after returning from FocusSession)
-  const { todayTotal: refreshedTotal } = useFocusSession(MOCK_USER_ID);
-  const displayTotal = refreshedTotal || todayTotal;
+  } = useFocusSession(user?.id || '');
 
   const handleStartFocus = () => {
     startSession(selectedDuration, []);
@@ -57,12 +52,12 @@ export default function HomeScreen({ navigation }: any) {
       </Card>
 
       <Card title="Today's Progress" subtitle="Keep it up!">
-        <Text style={styles.stat}>🔥 {displayTotal} min focused today</Text>
-        <Text style={styles.stat}>📅 {displayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
+        <Text style={styles.stat}>🔥 {todayTotal} min focused today</Text>
+        <Text style={styles.stat}>📅 {todayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
       </Card>
 
       <Card title="Weekly Rank" subtitle="#1 — That's you!">
-        <Text style={styles.stat}>🏆 You: {displayTotal} min</Text>
+        <Text style={styles.stat}>🏆 You: {todayTotal} min</Text>
         <Text style={styles.stat}>Add friends to compete!</Text>
       </Card>
     </ScrollView>

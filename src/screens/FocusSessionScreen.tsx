@@ -5,16 +5,16 @@ import { COLORS, SPACING } from '../constants/theme';
 import { useFocusTimer } from '../hooks/useFocusTimer';
 import { formatSecondsToMMSS } from '../utils/timeFormat';
 import { useFocusSession } from '../hooks/useFocusSession';
+import { useAuth } from '../hooks/useAuth';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
-const MOCK_USER_ID = 'YOUR_UUID_HERE';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FocusSession'>;
 
 export default function FocusSessionScreen({ route, navigation }: Props) {
   const { duration } = route.params;
-  const { completeSession, cancelSession } = useFocusSession(MOCK_USER_ID);
+  const { user } = useAuth();
+  const { completeSession, cancelSession } = useFocusSession(user?.id || '');
   const { remainingSeconds, isRunning, startTimer, stopTimer } = useFocusTimer(duration * 60);
   const [completed, setCompleted] = useState(false);
 
@@ -22,7 +22,6 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     startTimer();
   }, []);
 
-  // Handle timer reaching 0
   useEffect(() => {
     if (remainingSeconds === 0 && !isRunning && !completed) {
       setCompleted(true);
