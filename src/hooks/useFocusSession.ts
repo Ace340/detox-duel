@@ -37,10 +37,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
   const startSession = useCallback(
     async (durationMinutes: number, blockedApps: string[]) => {
       const now = new Date().toISOString();
-      // Generate a unique ID for local storage (will be replaced by UUID in Supabase)
       const session: FocusSession = {
         id: `local-${Date.now()}`,
-        user_id: userId,
+        user_id: userId || '00000000-0000-0000-0000-000000000000',
         start_time: now,
         duration_minutes: durationMinutes,
         blocked_apps: blockedApps,
