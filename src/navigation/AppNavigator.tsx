@@ -13,12 +13,10 @@ import FocusSessionScreen from '../screens/FocusSessionScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-type RootStackParamList = {
+export type RootStackParamList = {
   Tabs: undefined;
   FocusSession: {
     duration: number;
-    onComplete: () => void;
-    onCancel: () => void;
   };
 };
 

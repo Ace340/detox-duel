@@ -1,29 +1,22 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useFocusTimer } from '../hooks/useFocusTimer';
 import { formatSecondsToMMSS } from '../utils/timeFormat';
+import { useFocusSession } from '../hooks/useFocusSession';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type RootStackParamList = {
-  Tabs: undefined;
-  FocusSession: {
-    duration: number;
-    onComplete: () => void;
-    onCancel: () => void;
-  };
-};
+// TODO: Replace with actual UUID from Supabase
+const MOCK_USER_ID = 'YOUR_UUID_HERE';
 
-type FocusSessionScreenProps = NativeStackScreenProps<
-  RootStackParamList,
-  'FocusSession'
->;
+type Props = NativeStackScreenProps<RootStackParamList, 'FocusSession'>;
 
-export default function FocusSessionScreen({ route, navigation }: FocusSessionScreenProps) {
-  const { duration, onComplete, onCancel } = route.params;
-  const { remainingSeconds, isRunning, startTimer, stopTimer, resetTimer } =
-    useFocusTimer(duration * 60);
+export default function FocusSessionScreen({ route, navigation }: Props) {
+  const { duration } = route.params;
+  const { completeSession, cancelSession } = useFocusSession(MOCK_USER_ID);
+  const { remainingSeconds, isRunning, startTimer, stopTimer } = useFocusTimer(duration * 60);
 
   useEffect(() => {
     startTimer();
@@ -31,18 +24,21 @@ export default function FocusSessionScreen({ route, navigation }: FocusSessionSc
 
   useEffect(() => {
     if (remainingSeconds === 0 && !isRunning) {
-      onComplete();
+      completeSession();
+      navigation.goBack();
     }
-  }, [remainingSeconds, isRunning, onComplete]);
+  }, [remainingSeconds, isRunning, completeSession, navigation]);
 
   const handleComplete = () => {
     stopTimer();
-    onComplete();
+    completeSession();
+    navigation.goBack();
   };
 
   const handleCancel = () => {
     stopTimer();
-    onCancel();
+    cancelSession();
+    navigation.goBack();
   };
 
   return (
@@ -51,11 +47,7 @@ export default function FocusSessionScreen({ route, navigation }: FocusSessionSc
         <Text style={styles.timer}>{formatSecondsToMMSS(remainingSeconds)}</Text>
         <View style={styles.buttonContainer}>
           <Button title="Complete Session" onPress={handleComplete} />
-          <Button
-            title="Cancel"
-            variant="secondary"
-            onPress={handleCancel}
-          />
+          <Button title="Cancel" variant="secondary" onPress={handleCancel} />
         </View>
       </Card>
     </View>

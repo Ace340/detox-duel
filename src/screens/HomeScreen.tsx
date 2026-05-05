@@ -25,8 +25,6 @@ export default function HomeScreen({ navigation }: any) {
     startSession(selectedDuration, []);
     navigation.navigate('FocusSession', {
       duration: selectedDuration,
-      onComplete: completeSession,
-      onCancel: cancelSession,
     });
   };
 
