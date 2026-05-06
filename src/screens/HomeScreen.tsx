@@ -15,6 +15,7 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = async () => {
     const active = await loadActiveSession();
+    console.log('[HomeScreen] Active session loaded:', active);
     if (active && active.status === 'active') {
       setHasActiveSession(true);
     } else {
@@ -24,7 +25,10 @@ export default function HomeScreen({ navigation }: any) {
     const total = await loadTodayTotal();
     setTodayTotal(total);
     const completed = await loadCompletedSessions();
-    setRecentSessions(completed.filter(s => s.status === 'completed').slice(-5).reverse());
+    console.log('[HomeScreen] All sessions loaded:', completed);
+    const recentSessions = completed.filter(s => s.status === 'completed').slice(-5).reverse();
+    console.log('[HomeScreen] Recent sessions (last 5 completed):', recentSessions);
+    setRecentSessions(recentSessions);
   };
 
   useEffect(() => { loadData(); }, []);

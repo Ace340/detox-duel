@@ -6,7 +6,7 @@ import { useFocusTimer } from '../hooks/useFocusTimer';
 import { formatSecondsToMMSS } from '../utils/timeFormat';
 import { useAuth } from '../hooks/useAuth';
 import { saveCompletedSessionToSupabase } from '../hooks/useFocusSupabase';
-import { saveCompletedSession, updateTodayTotal, clearActiveSession } from '../hooks/useFocusStorage';
+import { saveActiveSession, saveCompletedSession, updateTodayTotal, clearActiveSession } from '../hooks/useFocusStorage';
 import type { FocusSession } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,20 +36,47 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
       status,
     };
 
-    await saveCompletedSession(session);
-    await saveCompletedSessionToSupabase(session);
+    try {
+      console.log('[FocusSessionScreen] Finishing session:', session);
+      await saveCompletedSession(session);
+      console.log('[FocusSessionScreen] Session saved to local storage');
+      await saveCompletedSessionToSupabase(session);
+      console.log('[FocusSessionScreen] Session saved to Supabase');
 
-    if (status === 'completed') {
-      await updateTodayTotal(duration);
+      if (status === 'completed') {
+        await updateTodayTotal(duration);
+        console.log('[FocusSessionScreen] Today total updated');
+      }
+    } catch (error) {
+      console.error('[FocusSessionScreen] Error during session completion:', error);
+    } finally {
+      // Always clear the active session, even if there's an error
+      await clearActiveSession();
+      console.log('[FocusSessionScreen] Active session cleared');
+      setSaving(false);
     }
-    await clearActiveSession();
-
-    setSaving(false);
   }, [user?.id, sessionStartTime, duration, saving]);
 
   useEffect(() => {
     startTimer();
   }, []);
+
+  // Save active session when component mounts
+  useEffect(() => {
+    const activeSession: FocusSession = {
+      id: `active-${Date.now()}`,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+      start_time: sessionStartTime,
+      end_time: '',
+      duration_minutes: duration,
+      blocked_apps: [],
+      status: 'active',
+    };
+
+    saveActiveSession(activeSession).catch(error => {
+      console.error('Failed to save active session:', error);
+    });
+  }, [user?.id, sessionStartTime, duration]);
 
   useEffect(() => {
     if (remainingSeconds === 0 && !isRunning && !completed) {
