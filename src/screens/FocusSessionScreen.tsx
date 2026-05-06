@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Vibration } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useFocusTimer } from '../hooks/useFocusTimer';
 import { formatSecondsToMMSS } from '../utils/timeFormat';
-import { useFocusSession } from '../hooks/useFocusSession';
 import { useAuth } from '../hooks/useAuth';
+import { saveCompletedSessionToSupabase } from '../hooks/useFocusSupabase';
+import { saveCompletedSession, updateTodayTotal, clearActiveSession } from '../hooks/useFocusStorage';
+import type { FocusSession } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -14,9 +16,36 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FocusSession'>;
 export default function FocusSessionScreen({ route, navigation }: Props) {
   const { duration } = route.params;
   const { user } = useAuth();
-  const { completeSession, cancelSession } = useFocusSession(user?.id || '');
   const { remainingSeconds, isRunning, startTimer, stopTimer } = useFocusTimer(duration * 60);
   const [completed, setCompleted] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const sessionStartTime = useState(() => new Date().toISOString())[0];
+
+  const finishSession = useCallback(async (status: 'completed' | 'cancelled') => {
+    if (saving) return;
+    setSaving(true);
+
+    const session: FocusSession = {
+      id: `local-${Date.now()}`,
+      user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+      start_time: sessionStartTime,
+      end_time: new Date().toISOString(),
+      duration_minutes: duration,
+      blocked_apps: [],
+      status,
+    };
+
+    await saveCompletedSession(session);
+    await saveCompletedSessionToSupabase(session);
+
+    if (status === 'completed') {
+      await updateTodayTotal(duration);
+    }
+    await clearActiveSession();
+
+    setSaving(false);
+  }, [user?.id, sessionStartTime, duration, saving]);
 
   useEffect(() => {
     startTimer();
@@ -26,19 +55,19 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     if (remainingSeconds === 0 && !isRunning && !completed) {
       setCompleted(true);
       Vibration.vibrate([500, 200, 500, 200, 500]);
-      completeSession();
+      finishSession('completed');
     }
   }, [remainingSeconds, isRunning]);
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     stopTimer();
-    completeSession();
+    await finishSession('completed');
     navigation.navigate('Tabs');
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     stopTimer();
-    cancelSession();
+    await finishSession('cancelled');
     navigation.navigate('Tabs');
   };
 
