@@ -16,16 +16,29 @@ export default function HomeScreen({ navigation }: any) {
   const loadData = async () => {
     const active = await loadActiveSession();
     console.log('[HomeScreen] Active session loaded:', active);
+    const completed = await loadCompletedSessions();
+    console.log('[HomeScreen] All sessions loaded:', completed);
+
+    // Check if the active session ID already exists in completed sessions (orphaned session)
     if (active && active.status === 'active') {
-      setHasActiveSession(true);
+      const sessionAlreadyCompleted = completed.some(
+        s => s.id === active.id && s.status !== 'active'
+      );
+      
+      if (sessionAlreadyCompleted) {
+        console.log('[HomeScreen] Cleaning up orphaned active session:', active.id);
+        await clearActiveSession();
+        setHasActiveSession(false);
+      } else {
+        setHasActiveSession(true);
+      }
     } else {
       if (active) await clearActiveSession();
       setHasActiveSession(false);
     }
+    
     const total = await loadTodayTotal();
     setTodayTotal(total);
-    const completed = await loadCompletedSessions();
-    console.log('[HomeScreen] All sessions loaded:', completed);
     const recentSessions = completed.filter(s => s.status === 'completed').slice(-5).reverse();
     console.log('[HomeScreen] Recent sessions (last 5 completed):', recentSessions);
     setRecentSessions(recentSessions);

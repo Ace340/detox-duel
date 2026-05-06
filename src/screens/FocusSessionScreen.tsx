@@ -21,13 +21,14 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
 
   const sessionStartTime = useState(() => new Date().toISOString())[0];
+  const sessionId = useState(() => `local-${Date.now()}`)[0];
 
   const finishSession = useCallback(async (status: 'completed' | 'cancelled') => {
     if (saving) return;
     setSaving(true);
 
     const session: FocusSession = {
-      id: `local-${Date.now()}`,
+      id: sessionId,
       user_id: user?.id || '00000000-0000-0000-0000-000000000000',
       start_time: sessionStartTime,
       end_time: new Date().toISOString(),
@@ -55,7 +56,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
       console.log('[FocusSessionScreen] Active session cleared');
       setSaving(false);
     }
-  }, [user?.id, sessionStartTime, duration, saving]);
+  }, [sessionId, user?.id, sessionStartTime, duration, saving]);
 
   useEffect(() => {
     startTimer();
@@ -64,7 +65,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   // Save active session when component mounts
   useEffect(() => {
     const activeSession: FocusSession = {
-      id: `active-${Date.now()}`,
+      id: sessionId,
       user_id: user?.id || '00000000-0000-0000-0000-000000000000',
       start_time: sessionStartTime,
       end_time: '',
@@ -76,7 +77,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     saveActiveSession(activeSession).catch(error => {
       console.error('Failed to save active session:', error);
     });
-  }, [user?.id, sessionStartTime, duration]);
+  }, [sessionId, user?.id, sessionStartTime, duration]);
 
   useEffect(() => {
     if (remainingSeconds === 0 && !isRunning && !completed) {
