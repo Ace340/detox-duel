@@ -8,7 +8,6 @@ export async function saveCompletedSessionToSupabase(
     // Skip Supabase save if user_id is not a real UUID (no auth yet)
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!UUID_REGEX.test(session.user_id)) {
-      console.log('Skipping Supabase save — no real user UUID yet (auth not set up)');
       return true; // Don't block the flow
     }
 

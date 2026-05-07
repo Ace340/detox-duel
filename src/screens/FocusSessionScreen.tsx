@@ -38,22 +38,17 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     };
 
     try {
-      console.log('[FocusSessionScreen] Finishing session:', session);
       await saveCompletedSession(session);
-      console.log('[FocusSessionScreen] Session saved to local storage');
       await saveCompletedSessionToSupabase(session);
-      console.log('[FocusSessionScreen] Session saved to Supabase');
 
       if (status === 'completed') {
         await updateTodayTotal(duration);
-        console.log('[FocusSessionScreen] Today total updated');
       }
     } catch (error) {
       console.error('[FocusSessionScreen] Error during session completion:', error);
     } finally {
       // Always clear the active session, even if there's an error
       await clearActiveSession();
-      console.log('[FocusSessionScreen] Active session cleared');
       setSaving(false);
     }
   }, [sessionId, user?.id, sessionStartTime, duration, saving]);

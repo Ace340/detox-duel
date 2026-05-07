@@ -17,12 +17,7 @@ if (!supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
   );
 }
 
-// Log successful initialization (development only)
-if (__DEV__) {
-  console.log('✅ Supabase client initialized');
-  console.log('📍 URL:', supabaseUrl);
-  console.log('🔑 Key:', supabaseAnonKey.substring(0, 20) + '...');
-}
+// Supabase client initialized
 
 // Create and export Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
