@@ -38,12 +38,32 @@ export async function getWeeklyFocusTotals(userId: string): Promise<WeeklyScore[
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekAgoIso = weekAgo.toISOString();
 
-    // Fetch sessions with user info using a simpler approach
+    // Get friend IDs
+    const { data: sent } = await supabase
+      .from('friendships')
+      .select('friend_id')
+      .eq('user_id', userId)
+      .eq('status', 'accepted');
+
+    const { data: received } = await supabase
+      .from('friendships')
+      .select('user_id')
+      .eq('friend_id', userId)
+      .eq('status', 'accepted');
+
+    const friendIds = [
+      userId, // include self
+      ...(sent || []).map(s => s.friend_id),
+      ...(received || []).map(r => r.user_id),
+    ];
+
+    // Fetch sessions for user + friends only
     const { data: sessions, error: sessionsError } = await supabase
       .from('focus_sessions')
       .select('*')
       .gte('start_time', weekAgoIso)
-      .eq('status', 'completed');
+      .eq('status', 'completed')
+      .in('user_id', friendIds);
 
     if (sessionsError) {
       console.error('Failed to fetch weekly totals:', sessionsError);
