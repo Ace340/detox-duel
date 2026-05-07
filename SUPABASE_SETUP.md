@@ -160,12 +160,13 @@ When you're ready to expand beyond the mock version:
 
 ### For Development
 - ✅ Using anon public key (safe for client apps)
-- ✅ RLS policies allow public access (for demo)
+- ✅ RLS policies allow friends search and user profiles
+- ✅ Users can only insert/update their own data
 - ✅ No sensitive data in code
 
 ### For Production
 - ⚠️ Implement proper authentication
-- ⚠️ Tighten RLS policies (only allow users to see their own data)
+- ⚠️ Consider tightening RLS policies (e.g., limit public user visibility)
 - ⚠️ Use environment-specific configs
 - ⚠️ Never commit `.env` to git
 
@@ -184,5 +185,5 @@ If you encounter issues:
 
 **Setup Status**: ✅ Ready to Run!
 
-**Last Updated**: 2026-05-05
-**Version**: 1.0.0
+**Last Updated**: 2026-05-07
+**Version**: 1.1.0 (Friends Search Fix)

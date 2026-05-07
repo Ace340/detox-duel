@@ -50,13 +50,46 @@ CREATE INDEX IF NOT EXISTS idx_focus_sessions_user_id ON focus_sessions(user_id)
 CREATE INDEX IF NOT EXISTS idx_focus_sessions_start_time ON focus_sessions(start_time);
 CREATE INDEX IF NOT EXISTS idx_focus_sessions_status ON focus_sessions(status);
 
--- Enable RLS (allow public access for demo)
+-- Enable RLS
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE focus_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view users" ON users FOR SELECT USING (true);
-CREATE POLICY "Anyone can view focus sessions" ON focus_sessions FOR SELECT USING (true);
-CREATE POLICY "Anyone can insert focus sessions" ON focus_sessions FOR INSERT WITH CHECK (true);
+-- USERS TABLE RLS POLICIES
+-- Allow authenticated users to read all users (for friends search)
+CREATE POLICY "Users can read all users" ON users
+  FOR SELECT
+  USING (true);
+
+-- Allow users to insert their own profile during signup
+CREATE POLICY "Users can insert their own profile" ON users
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- Allow users to update their own profile
+CREATE POLICY "Users can update their own profile" ON users
+  FOR UPDATE
+  USING (auth.uid() = id);
+
+-- FOCUS SESSIONS TABLE RLS POLICIES
+-- Allow authenticated users to read all focus sessions (for leaderboard)
+CREATE POLICY "Users can read all focus sessions" ON focus_sessions
+  FOR SELECT
+  USING (true);
+
+-- Allow users to insert their own focus sessions
+CREATE POLICY "Users can insert their own focus sessions" ON focus_sessions
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to update their own focus sessions
+CREATE POLICY "Users can update their own focus sessions" ON focus_sessions
+  FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Allow users to delete their own focus sessions
+CREATE POLICY "Users can delete their own focus sessions" ON focus_sessions
+  FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- Create test user
 INSERT INTO users (username, email, created_at)
