@@ -46,37 +46,37 @@ A focus app that blocks social media, tracks your focus time, and lets you compe
 
 ---
 
-## 🔜 In Progress
+## ✅ Completed (Since Last Update)
 
 ### Auth Flow
-- [ ] Sign up screen (email + password)
-- [ ] Log in screen
-- [ ] Supabase Auth integration
-- [ ] Auto-create user profile in `users` table on signup
-- [ ] Auth state persistence (stay logged in)
-- [ ] Log out
+- [x] Sign up screen (email + password + username)
+- [x] Log in screen
+- [x] Supabase Auth integration
+- [x] Auto-create user profile in `users` table on signup
+- [x] Auth state persistence (stay logged in)
+- [x] Log out
+
+### Session History
+- [x] Show completed sessions list on home screen
+- [x] Session details (date, duration, status)
+
+### Friends System
+- [x] Search users by username
+- [x] Send friend request
+- [x] Accept/reject friend request
+- [x] Remove friend
+- [x] Friends list screen
+- [x] RLS policies for friendships table
+
+### Weekly Leaderboard (Real Data)
+- [x] Pull real focus totals from Supabase
+- [x] Rank friends by weekly focus time
+- [x] Show user + friends ranked with medals 🥇🥈🥉
+- [x] Highlight current user's row
 
 ---
 
-## 📋 Phase 1: MVP Core
-
-### Session History
-- [ ] Show completed sessions list on home/profile
-- [ ] Session details (date, duration, status)
-- [ ] Delete session option
-
-### Friends System
-- [ ] Search users by username
-- [ ] Send friend request
-- [ ] Accept/reject friend request
-- [ ] Remove friend
-- [ ] Friends list screen
-
-### Weekly Leaderboard (Real Data)
-- [ ] Pull real focus totals from Supabase
-- [ ] Rank friends by weekly focus time
-- [ ] Show current week's dates
-- [ ] Reset leaderboard each Monday
+## 🔜 In Progress
 
 ### Notifications
 - [ ] Push notification permission
@@ -192,11 +192,11 @@ A focus app that blocks social media, tracks your focus time, and lets you compe
 | Phase | Status | % Complete |
 |-------|--------|------------|
 | Setup | ✅ Done | 100% |
-| Auth Flow | 🔜 Next | 0% |
-| Session History | 📋 Planned | 0% |
-| Friends System | 📋 Planned | 0% |
-| Real Leaderboard | 📋 Planned | 0% |
-| Notifications | 📋 Planned | 0% |
+| Auth Flow | ✅ Done | 100% |
+| Session History | ✅ Done | 100% |
+| Friends System | ✅ Done | 100% |
+| Real Leaderboard | ✅ Done | 100% |
+| Notifications | 🔜 In Progress | 0% |
 | Phase 2 Features | 📋 Planned | 0% |
 | Monetization | 📋 Planned | 0% |
 | Native Blocking | 📋 Planned | 0% |
@@ -204,6 +204,14 @@ A focus app that blocks social media, tracks your focus time, and lets you compe
 ---
 
 ## 📝 Changelog
+
+### May 7, 2026
+- Auth flow complete (signup, login, logout, session persistence)
+- Session history showing on home screen
+- Friends system: search, send/accept requests, friends list
+- Real leaderboard: user + friends ranked by weekly focus minutes
+- Fixed RLS policies for focus_sessions, friendships, users tables
+- GitHub SSH access configured for server
 
 ### May 5, 2026
 - Project scaffolded with Expo + TypeScript

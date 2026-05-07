@@ -4,11 +4,13 @@ import { Card, Button } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useFriends } from '../hooks/useFriends';
+import { useNotifications } from '../hooks/useNotifications';
 import type { FriendUser } from '../hooks/useFriends';
 
 export default function FriendsScreen() {
   const { user } = useAuth();
   const { friends, pending, loading, loadFriends, searchUsers, sendRequest, acceptRequest, removeFriend } = useFriends(user?.id || '');
+  const { createNotification } = useNotifications(user?.id || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FriendUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -30,18 +32,20 @@ export default function FriendsScreen() {
     setSearching(false);
   };
 
-  const handleSendRequest = async (friendId: string) => {
+  const handleSendRequest = async (friendId: string, friendName: string) => {
     const ok = await sendRequest(friendId);
     if (ok) {
       setSearchResults(prev => prev.filter(r => r.id !== friendId));
+      await createNotification(friendId, 'friend_request', 'New Friend Request', `${user?.email?.split('@')[0] || 'Someone'} wants to be your friend!`, { friendship_user_id: user?.id });
       Alert.alert('Request sent! 🎉');
     } else {
       Alert.alert('Could not send request. Maybe already sent?');
     }
   };
 
-  const handleAccept = async (friendshipId: string) => {
+  const handleAccept = async (friendshipId: string, friendId: string, friendName: string) => {
     await acceptRequest(friendshipId);
+    await createNotification(friendId, 'friend_accepted', 'Friend Request Accepted!', `${friendName} accepted your friend request!`, { friendship_id: friendshipId });
   };
 
   const handleRemove = async (friendshipId: string, name: string) => {
@@ -78,7 +82,7 @@ export default function FriendsScreen() {
         {searchResults.map(result => (
           <View key={result.id} style={styles.userRow}>
             <Text style={styles.userName}>{result.username}</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => handleSendRequest(result.id)}>
+            <TouchableOpacity style={styles.addButton} onPress={() => handleSendRequest(result.id, result.username)}>
               <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
           </View>
@@ -99,7 +103,7 @@ export default function FriendsScreen() {
               </View>
               {req.direction === 'received' ? (
                 <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.acceptButton} onPress={() => handleAccept(req.friendship_id)}>
+                  <TouchableOpacity style={styles.acceptButton} onPress={() => handleAccept(req.friendship_id, req.id, req.username)}>
                     <Text style={styles.acceptButtonText}>Accept</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.declineButton} onPress={() => handleRemove(req.friendship_id, req.username)}>

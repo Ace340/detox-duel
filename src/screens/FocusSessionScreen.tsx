@@ -7,6 +7,7 @@ import { formatSecondsToMMSS } from '../utils/timeFormat';
 import { useAuth } from '../hooks/useAuth';
 import { saveCompletedSessionToSupabase } from '../hooks/useFocusSupabase';
 import { saveActiveSession, saveCompletedSession, updateTodayTotal, clearActiveSession } from '../hooks/useFocusStorage';
+import { scheduleSessionReminder, cancelAllNotifications } from '../services/notifications';
 import type { FocusSession } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -55,6 +56,12 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     startTimer();
+    // Schedule halfway reminder
+    let notifId: string | null = null;
+    scheduleSessionReminder(duration).then(id => { notifId = id; });
+    return () => {
+      cancelAllNotifications();
+    };
   }, []);
 
   // Save active session when component mounts
