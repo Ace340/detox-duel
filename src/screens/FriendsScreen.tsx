@@ -15,7 +15,7 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<FriendUser[]>([]);
   const [searching, setSearching] = useState(false);
 
-  useEffect(() => { loadFriends(); }, [loadFriends]);
+  useEffect(() => { loadFriends(); }, [user?.id]);
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);

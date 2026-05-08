@@ -13,7 +13,7 @@ export default function ProfileScreen() {
   const { notifications, unreadCount, loadNotifications, markAllRead } = useNotifications(user?.id || '');
   const [notifEnabled, setNotifEnabled] = useState(false);
 
-  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+  useEffect(() => { loadNotifications(); }, [user?.id]);
 
   const handleEnableNotifications = async () => {
     const ok = await savePushToken(user?.id || '');

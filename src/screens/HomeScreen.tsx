@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
@@ -20,12 +20,14 @@ export default function HomeScreen({ navigation }: any) {
   const { pendingChallenges, loading: pendingLoading, error: pendingError, loadPendingChallenges } = usePendingChallenges(user?.id || '');
 
   // Realtime challenge subscription
+  const handleNewChallenge = useCallback(() => {
+    // Reload pending challenges when a new one arrives
+    loadPendingChallenges();
+  }, [loadPendingChallenges]);
+
   useRealtimeChallenges({
     userId: user?.id || '',
-    onNewChallenge: () => {
-      // Reload pending challenges when a new one arrives
-      loadPendingChallenges();
-    },
+    onNewChallenge: handleNewChallenge,
   });
 
   const loadData = async () => {
