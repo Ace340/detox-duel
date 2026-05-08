@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { loadActiveSession, clearActiveSession, loadCompletedSessions, loadTodayTotal } from '../hooks/useFocusStorage';
+import { usePendingChallenges } from '../hooks/usePendingChallenges';
+import { useRealtimeChallenges } from '../hooks/useRealtimeChallenges';
 import type { FocusSession } from '../types';
+import type { PendingChallenge } from '../hooks/usePendingChallenges';
 
 export default function HomeScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -12,6 +15,18 @@ export default function HomeScreen({ navigation }: any) {
   const [todayTotal, setTodayTotal] = useState(0);
   const [recentSessions, setRecentSessions] = useState<FocusSession[]>([]);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+
+  // Pending challenges hooks
+  const { pendingChallenges, loading: pendingLoading, error: pendingError, loadPendingChallenges } = usePendingChallenges(user?.id || '');
+
+  // Realtime challenge subscription
+  useRealtimeChallenges({
+    userId: user?.id || '',
+    onNewChallenge: () => {
+      // Reload pending challenges when a new one arrives
+      loadPendingChallenges();
+    },
+  });
 
   const loadData = async () => {
     const active = await loadActiveSession();
@@ -38,15 +53,20 @@ export default function HomeScreen({ navigation }: any) {
     setTodayTotal(total);
     const recentSessions = completed.filter(s => s.status === 'completed').slice(-5).reverse();
     setRecentSessions(recentSessions);
+
+    // Load pending challenges
+    if (user?.id) {
+      loadPendingChallenges();
+    }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [user?.id]);
 
   // Reload when screen gains focus
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadData);
     return unsub;
-  }, [navigation]);
+  }, [navigation, user?.id]);
 
   const handleStartFocus = () => {
     navigation.navigate('FocusSession', {
@@ -54,9 +74,67 @@ export default function HomeScreen({ navigation }: any) {
     });
   };
 
+  // Helper function to get duel type emoji
+  const getDuelTypeEmoji = (type: string): string => {
+    const emojis: Record<string, string> = {
+      focus_sprint: '⚡',
+      weekly_war: '⚔️',
+      streak_battle: '🔥',
+      quick_duel: '⚡',
+    };
+    return emojis[type] || '🎯';
+  };
+
+  // Navigate to challenge screen when a pending challenge is tapped
+  const handleChallengeTap = (challenge: PendingChallenge) => {
+    navigation.navigate('DuelChallenge', {
+      duelId: challenge.id,
+      opponentId: user?.id || '',
+    });
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.greeting}>Ready to focus? 🎯</Text>
+
+      {/* Pending Challenges Card */}
+      {pendingChallenges.length > 0 && (
+        <Card
+          title={`Pending Challenges (${pendingChallenges.length})`}
+          subtitle={pendingLoading ? 'Loading...' : pendingError ? 'Error loading challenges' : 'Tap to respond'}
+        >
+          {pendingChallenges.map((challenge) => (
+            <TouchableOpacity
+              key={challenge.id}
+              style={styles.challengeRow}
+              onPress={() => handleChallengeTap(challenge)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.challengeLeft}>
+                <Text style={styles.challengeIcon}>{getDuelTypeEmoji(challenge.duel_type)}</Text>
+                <View style={styles.challengeInfo}>
+                  <Text style={styles.challengeUsername}>@{challenge.creator_username || 'Unknown'}</Text>
+                  <Text style={styles.challengeType}>{getDuelTypeEmoji(challenge.duel_type)} Duel</Text>
+                </View>
+              </View>
+              <Text style={styles.challengeArrow}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </Card>
+      )}
+
+      <Card
+        title={`Challenge a Friend${pendingChallenges.length > 0 ? ` (${pendingChallenges.length})` : ''}`}
+        subtitle="Compete and stay focused together!"
+      >
+        <Button
+          title="Create Duel ⚔️"
+          variant="primary"
+          onPress={() => navigation.navigate('CreateDuel')}
+        />
+      </Card>
+
+      <View style={styles.spacer} />
 
       <Card
         title={hasActiveSession ? 'Session Active' : 'Start Focus Session'}
@@ -121,4 +199,40 @@ const styles = StyleSheet.create({
   sessionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border || '#333' },
   sessionDuration: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
   sessionTime: { color: COLORS.textSecondary, fontSize: 13 },
+  // Pending challenges styles
+  challengeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border || '#2A2A4A',
+  },
+  challengeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  challengeIcon: {
+    fontSize: 20,
+    marginRight: SPACING.md,
+  },
+  challengeInfo: {
+    flex: 1,
+  },
+  challengeUsername: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  challengeType: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  challengeArrow: {
+    color: COLORS.primary,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
 });

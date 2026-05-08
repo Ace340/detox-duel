@@ -12,6 +12,11 @@ import LeaderboardScreen from '../screens/LeaderboardScreen';
 import FriendsScreen from '../screens/FriendsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FocusSessionScreen from '../screens/FocusSessionScreen';
+import CreateDuelScreen from '../screens/CreateDuelScreen';
+import SelectFriendScreen from '../screens/SelectFriendScreen';
+import ConfigureDuelScreen from '../screens/ConfigureDuelScreen';
+import ReviewDuelScreen from '../screens/ReviewDuelScreen';
+import DuelChallengeScreen from '../screens/DuelChallengeScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -20,6 +25,21 @@ export type RootStackParamList = {
   Tabs: undefined;
   FocusSession: {
     duration: number;
+  };
+  CreateDuel: undefined;
+  SelectFriend: undefined;
+  ConfigureDuel: {
+    selectedFriendIds: string[];
+  };
+  ReviewDuel: {
+    selectedFriendIds: string[];
+    duelType: string;
+    durationHours: number;
+    bannedApps: string[];
+  };
+  DuelChallenge: {
+    duelId: string;
+    opponentId: string;
   };
 };
 
@@ -68,6 +88,31 @@ function AppStack() {
         name="FocusSession"
         component={FocusSessionScreen as React.ComponentType<any>}
         options={{ title: 'Focus Session', headerShown: false }}
+      />
+      <Stack.Screen
+        name="CreateDuel"
+        component={CreateDuelScreen as React.ComponentType<any>}
+        options={{ title: 'Create Duel' }}
+      />
+      <Stack.Screen
+        name="SelectFriend"
+        component={SelectFriendScreen as React.ComponentType<any>}
+        options={{ title: 'Select Opponent' }}
+      />
+      <Stack.Screen
+        name="ConfigureDuel"
+        component={ConfigureDuelScreen as React.ComponentType<any>}
+        options={{ title: 'Configure Duel' }}
+      />
+      <Stack.Screen
+        name="ReviewDuel"
+        component={ReviewDuelScreen as React.ComponentType<any>}
+        options={{ title: 'Review Challenge' }}
+      />
+      <Stack.Screen
+        name="DuelChallenge"
+        component={DuelChallengeScreen as React.ComponentType<any>}
+        options={{ title: 'Duel Challenge' }}
       />
     </Stack.Navigator>
   );

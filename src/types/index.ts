@@ -38,3 +38,6 @@ export interface AppInfo {
   icon?: string;
   selected: boolean;
 }
+
+// Export duel feature types
+export * from './duel';
