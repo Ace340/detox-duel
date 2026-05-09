@@ -1,11 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { Button, Card } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+
+type CreateDuelScreenRouteProp = RouteProp<RootStackParamList, 'CreateDuel'>;
 
 export default function CreateDuelScreen({ navigation }: any) {
+  const route = useRoute<CreateDuelScreenRouteProp>();
+  const { opponentId, duelType } = route.params || {};
+
   const handleCreateDuel = () => {
-    navigation.navigate('SelectFriend');
+    navigation.navigate('SelectFriend' as any);
   };
 
   return (

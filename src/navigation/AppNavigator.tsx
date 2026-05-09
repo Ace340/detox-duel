@@ -17,6 +17,7 @@ import SelectFriendScreen from '../screens/SelectFriendScreen';
 import ConfigureDuelScreen from '../screens/ConfigureDuelScreen';
 import ReviewDuelScreen from '../screens/ReviewDuelScreen';
 import DuelChallengeScreen from '../screens/DuelChallengeScreen';
+import DuelResultsScreen from '../screens/DuelResultsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -26,7 +27,10 @@ export type RootStackParamList = {
   FocusSession: {
     duration: number;
   };
-  CreateDuel: undefined;
+  CreateDuel: {
+    opponentId?: string;
+    duelType?: string;
+  };
   SelectFriend: undefined;
   ConfigureDuel: {
     selectedFriendIds: string[];
@@ -40,6 +44,9 @@ export type RootStackParamList = {
   DuelChallenge: {
     duelId: string;
     opponentId: string;
+  };
+  DuelResults: {
+    duelId: string;
   };
 };
 
@@ -113,6 +120,11 @@ function AppStack() {
         name="DuelChallenge"
         component={DuelChallengeScreen as React.ComponentType<any>}
         options={{ title: 'Duel Challenge' }}
+      />
+      <Stack.Screen
+        name="DuelResults"
+        component={DuelResultsScreen as React.ComponentType<any>}
+        options={{ title: 'Duel Results' }}
       />
     </Stack.Navigator>
   );

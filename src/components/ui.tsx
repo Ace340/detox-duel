@@ -24,16 +24,17 @@ interface ButtonProps {
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'outline';
   disabled?: boolean;
+  style?: ViewStyle;
 }
 
-export function Button({ title, onPress, variant = 'primary', disabled }: ButtonProps) {
+export function Button({ title, onPress, variant = 'primary', disabled, style }: ButtonProps) {
   const bg = variant === 'primary' ? COLORS.primary
     : variant === 'secondary' ? COLORS.secondary
     : 'transparent';
 
   return (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: bg }, variant === 'outline' && styles.outlineButton]}
+      style={[styles.button, { backgroundColor: bg }, variant === 'outline' && styles.outlineButton, style]}
       onPress={onPress}
       disabled={disabled}
     >
