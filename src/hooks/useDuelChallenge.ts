@@ -70,31 +70,35 @@ export function useDuelChallenge() {
         return false;
       }
 
-      // Validate duel is in pending state
-      if (duel.status !== 'pending') {
-        console.error('acceptChallenge: duel is not in pending state');
+      // Validate duel is in a valid state for acceptance
+      if (duel.status !== 'pending' && duel.status !== 'active') {
+        console.error('acceptChallenge: duel cannot be accepted (status:', duel.status, ')');
         setError('This duel cannot be accepted');
         return false;
       }
 
-      // Step 2: Update duel status to 'active' with started_at
-      const { error: updateError } = await supabase
-        .from('duels')
-        .update({
-          status: 'active',
-          started_at: new Date().toISOString(),
-        })
-        .eq('id', duelId)
-        .eq('status', 'pending')
-        .select();
+      // Step 2: Update duel status to 'active' with started_at (idempotent — skip if already active)
+      if (duel.status === 'pending') {
+        const { error: updateError } = await supabase
+          .from('duels')
+          .update({
+            status: 'active',
+            started_at: new Date().toISOString(),
+          })
+          .eq('id', duelId)
+          .eq('status', 'pending')
+          .select();
 
-      if (updateError) {
-        console.error('Failed to update duel status:', updateError);
-        setError('Failed to accept challenge');
-        return false;
+        if (updateError) {
+          console.error('Failed to update duel status:', updateError);
+          setError('Failed to accept challenge');
+          return false;
+        }
       }
 
-      // Step 3: Insert duel participant record for the accepting user
+      // Step 3: Upsert duel participant record for the accepting user
+      // Uses upsert to handle edge cases: creator already inserted at creation time,
+      // or partial success from a previous attempt (status updated but participant insert failed).
       const participantInsert: DuelParticipantInsert = {
         duel_id: duelId,
         user_id: userId,
@@ -105,7 +109,7 @@ export function useDuelChallenge() {
 
       const { error: participantError } = await supabase
         .from('duel_participants')
-        .insert([participantInsert])
+        .upsert([participantInsert], { onConflict: 'duel_id,user_id' })
         .select();
 
       if (participantError) {
