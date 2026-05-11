@@ -341,3 +341,43 @@ export function formatRewardType(type: RewardType): string {
   };
   return labels[type];
 }
+
+// =====================================================
+// SCREEN TIME TRACKING TYPES
+// =====================================================
+
+/**
+ * Screen time usage for a single app
+ */
+export interface AppScreenTime {
+  packageName: string;
+  appName: string;
+  secondsUsed: number;
+}
+
+/**
+ * Screen time tracking result for a duel
+ */
+export interface DuelScreenTimeResult {
+  totalSeconds: number;
+  apps: AppScreenTime[];
+  timestamp: number;
+}
+
+/**
+ * Permission status for screen time tracking
+ */
+export type ScreenTimePermissionStatus =
+  | 'granted'
+  | 'denied'
+  | 'not_requested'
+  | 'unsupported';
+
+/**
+ * Screen time tracking configuration for a duel
+ */
+export interface ScreenTimeConfig {
+  bannedApps: string[];
+  sinceTimestamp: number; // Milliseconds since epoch
+  limitSeconds: number;
+}
