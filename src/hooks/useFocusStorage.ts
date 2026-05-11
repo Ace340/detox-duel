@@ -63,11 +63,14 @@ export async function clearActiveSession(): Promise<boolean> {
   }
 }
 
+const MAX_LOCAL_SESSIONS = 100;
+
 export async function saveCompletedSession(session: FocusSession): Promise<boolean> {
   const result = await getItem<FocusSession[]>(STORAGE_KEYS.COMPLETED_SESSIONS);
   const sessions: FocusSession[] = result.success && result.data ? result.data : [];
 
-  const updatedSessions = [...sessions, session];
+  // Cap growth: keep only the most-recent MAX_LOCAL_SESSIONS entries.
+  const updatedSessions = [...sessions, session].slice(-MAX_LOCAL_SESSIONS);
   const saveResult = await setItem(STORAGE_KEYS.COMPLETED_SESSIONS, updatedSessions);
 
   if (!saveResult.success) {

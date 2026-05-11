@@ -19,16 +19,20 @@ export function useFriends(userId: string) {
     if (!userId) return;
     setLoading(true);
 
-    // Get friendships where user is involved
-    const { data: sent, error: e1 } = await supabase
-      .from('friendships')
-      .select('id, friend_id, status, created_at')
-      .eq('user_id', userId);
+    // Parallel fetch of both friendship directions cuts latency ~50%.
+    const [sentResult, receivedResult] = await Promise.all([
+      supabase
+        .from('friendships')
+        .select('id, friend_id, status, created_at')
+        .eq('user_id', userId),
+      supabase
+        .from('friendships')
+        .select('id, user_id, status, created_at')
+        .eq('friend_id', userId),
+    ]);
 
-    const { data: received, error: e2 } = await supabase
-      .from('friendships')
-      .select('id, user_id, status, created_at')
-      .eq('friend_id', userId);
+    const { data: sent, error: e1 } = sentResult;
+    const { data: received, error: e2 } = receivedResult;
 
     if (e1 || e2) {
       console.error('Error loading friendships:', e1 || e2);

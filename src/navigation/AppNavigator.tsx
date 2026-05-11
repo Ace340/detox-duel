@@ -18,6 +18,9 @@ import ConfigureDuelScreen from '../screens/ConfigureDuelScreen';
 import ReviewDuelScreen from '../screens/ReviewDuelScreen';
 import DuelChallengeScreen from '../screens/DuelChallengeScreen';
 import DuelResultsScreen from '../screens/DuelResultsScreen';
+import DuelHistoryScreen from '../screens/DuelHistoryScreen';
+import BragCardScreen from '../screens/BragCardScreen';
+import MyDuelsScreen from '../screens/MyDuelsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -48,11 +51,14 @@ export type RootStackParamList = {
   DuelResults: {
     duelId: string;
   };
+  DuelHistory: undefined;
+  BragCard: undefined;
 };
 
 const tabs = [
   { name: 'Home', component: HomeScreen, icon: '🎯' },
   { name: 'Leaderboard', component: LeaderboardScreen, icon: '🏆' },
+  { name: 'My Duels', component: MyDuelsScreen, icon: '⚔️' },
   { name: 'Friends', component: FriendsScreen, icon: '👥' },
   { name: 'Profile', component: ProfileScreen, icon: '👤' },
 ];
@@ -125,6 +131,16 @@ function AppStack() {
         name="DuelResults"
         component={DuelResultsScreen as React.ComponentType<any>}
         options={{ title: 'Duel Results' }}
+      />
+      <Stack.Screen
+        name="DuelHistory"
+        component={DuelHistoryScreen as React.ComponentType<any>}
+        options={{ title: 'Duel History' }}
+      />
+      <Stack.Screen
+        name="BragCard"
+        component={BragCardScreen as React.ComponentType<any>}
+        options={{ title: 'Share Stats' }}
       />
     </Stack.Navigator>
   );

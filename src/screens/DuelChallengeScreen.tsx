@@ -8,11 +8,44 @@ import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useDuelChallenge } from '../hooks/useDuelChallenge';
 import { supabase } from '../services/supabase';
-import { formatDuelType, type Duel } from '../types/duel';
+import { formatDuelType, type Duel, type DuelStatus } from '../types/duel';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 type DuelChallengeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'DuelChallenge'>;
 type DuelChallengeScreenRouteProp = RouteProp<RootStackParamList, 'DuelChallenge'>;
+
+// =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+
+/**
+ * Determines if action buttons should be shown for a duel
+ * @param duel - The duel to check
+ * @param userId - Current user's ID
+ * @returns True if user is opponent and duel is pending
+ */
+function shouldShowActionButtons(duel: Duel | null, userId: string | undefined): boolean {
+  if (!duel || !userId) return false;
+  if (duel.status !== 'pending') return false;
+  // Only show buttons if current user is the opponent (not the creator)
+  return duel.opponent_id === userId;
+}
+
+/**
+ * Gets the status message to display based on duel status
+ * @param status - The duel status
+ * @returns Status message and emoji
+ */
+function getStatusMessage(status: DuelStatus): { message: string; emoji: string } {
+  const statusMessages: Record<DuelStatus, { message: string; emoji: string }> = {
+    pending: { message: 'Challenge Pending', emoji: '⏳' },
+    active: { message: 'Duel in Progress', emoji: '⚔️' },
+    completed: { message: 'Duel Completed', emoji: '✅' },
+    cancelled: { message: 'Duel Cancelled', emoji: '❌' },
+    expired: { message: 'Duel Expired', emoji: '⏰' },
+  };
+  return statusMessages[status];
+}
 
 export default function DuelChallengeScreen() {
   const navigation = useNavigation<DuelChallengeScreenNavigationProp>();
@@ -183,10 +216,19 @@ export default function DuelChallengeScreen() {
   const duelTypeEmoji = getDuelTypeEmoji(duel.duel_type);
   const formattedDuration = formatDuration(duel.duration_hours);
   const bannedAppsList = duel.banned_apps || [];
+  const showActionButtons = shouldShowActionButtons(duel, user?.id);
+  const statusInfo = getStatusMessage(duel.status);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.greeting}>Duel Challenge</Text>
+      <Text style={styles.greeting}>Duel Challenge {statusInfo.emoji}</Text>
+
+      {/* Status Banner */}
+      {duel.status !== 'pending' && (
+        <View style={[styles.statusBanner, getStatusBannerStyle(duel.status)]}>
+          <Text style={styles.statusText}>{statusInfo.message}</Text>
+        </View>
+      )}
 
       {/* Creator Info Card */}
       <Card title={null} subtitle={null}>
@@ -231,25 +273,59 @@ export default function DuelChallengeScreen() {
         )}
       </Card>
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <Button
-          title="Accept Challenge"
-          variant="primary"
-          onPress={handleAccept}
-          disabled={actionLoading}
-          style={styles.button}
-        />
-        <Button
-          title="Decline Challenge"
-          variant="outline"
-          onPress={handleDecline}
-          disabled={actionLoading}
-          style={styles.button}
-        />
-      </View>
+      {/* Conditional Action Buttons */}
+      {showActionButtons ? (
+        <View style={styles.buttonContainer}>
+          <Button
+            title="Accept Challenge"
+            variant="primary"
+            onPress={handleAccept}
+            disabled={actionLoading}
+            style={styles.button}
+          />
+          <Button
+            title="Decline Challenge"
+            variant="outline"
+            onPress={handleDecline}
+            disabled={actionLoading}
+            style={styles.button}
+          />
+        </View>
+      ) : (
+        <View style={styles.buttonContainer}>
+          {duel.status === 'completed' || duel.status === 'cancelled' || duel.status === 'expired' ? (
+            <Button
+              title="View Results"
+              variant="primary"
+              onPress={() => navigation.navigate('DuelResults', { duelId: duel.id })}
+              style={styles.button}
+            />
+          ) : duel.status === 'active' ? (
+            <Button
+              title="Go to My Duels"
+              variant="outline"
+              onPress={() => navigation.goBack()}
+              style={styles.button}
+            />
+          ) : null}
+        </View>
+      )}
     </ScrollView>
   );
+}
+
+/**
+ * Gets the banner style based on duel status
+ */
+function getStatusBannerStyle(status: DuelStatus): { backgroundColor: string; borderColor: string } {
+  const styles: Record<DuelStatus, { backgroundColor: string; borderColor: string }> = {
+    pending: { backgroundColor: 'rgba(255, 152, 0, 0.1)', borderColor: 'rgba(255, 152, 0, 0.3)' },
+    active: { backgroundColor: 'rgba(33, 150, 243, 0.1)', borderColor: 'rgba(33, 150, 243, 0.3)' },
+    completed: { backgroundColor: 'rgba(76, 175, 80, 0.1)', borderColor: 'rgba(76, 175, 80, 0.3)' },
+    cancelled: { backgroundColor: 'rgba(244, 67, 54, 0.1)', borderColor: 'rgba(244, 67, 54, 0.3)' },
+    expired: { backgroundColor: 'rgba(158, 158, 158, 0.1)', borderColor: 'rgba(158, 158, 158, 0.3)' },
+  };
+  return styles[status];
 }
 
 const styles = StyleSheet.create({
@@ -272,6 +348,18 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: SPACING.lg,
+  },
+  statusBanner: {
+    padding: SPACING.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: SPACING.md,
+    alignItems: 'center',
+  },
+  statusText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
   errorText: {
     color: COLORS.error,

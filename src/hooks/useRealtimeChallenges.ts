@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../services/supabase';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Duel } from '../types/duel';
@@ -32,6 +32,9 @@ interface UseRealtimeChallengesReturn {
  * - opponent_id matches the current user
  * - status is 'pending'
  *
+ * The callback is stored in a ref so the subscription is only recreated
+ * when userId changes, not on every parent re-render.
+ *
  * @param options - Configuration options including userId and callback
  * @returns Subscription object and connection status
  *
@@ -53,6 +56,13 @@ export function useRealtimeChallenges({
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Stabilize callback in a ref so the useEffect below only depends on
+  // userId.  This prevents the realtime channel from being torn down and
+  // recreated on every parent re-render (which happens when the parent
+  // passes an inline arrow function as onNewChallenge).
+  const onNewChallengeRef = useRef(onNewChallenge);
+  onNewChallengeRef.current = onNewChallenge;
+
   useEffect(() => {
     // Validate input
     if (!userId) {
@@ -72,7 +82,7 @@ export function useRealtimeChallenges({
           event: 'INSERT',
           schema: 'public',
           table: 'duels',
-          filter: `opponent_id=eq.${userId}&status=eq.pending`
+          filter: `opponent_id=eq.${userId}&status=eq.pending`,
         },
         (payload: RealtimePostgresChangesPayload<Duel>) => {
           // Extract new duel record from payload
@@ -84,13 +94,13 @@ export function useRealtimeChallenges({
             return;
           }
 
-          // Invoke callback with new challenge
+          // Invoke callback via stable ref
           try {
-            onNewChallenge(newDuel);
+            onNewChallengeRef.current(newDuel);
           } catch (callbackError) {
             console.error('Error in onNewChallenge callback:', callbackError);
           }
-        }
+        },
       )
       .subscribe((status) => {
         // Handle subscription status changes
@@ -111,12 +121,12 @@ export function useRealtimeChallenges({
     // Store subscription reference
     setSubscription(channel);
 
-    // Cleanup: remove channel when component unmounts or dependencies change
+    // Cleanup: remove channel when component unmounts or userId changes
     return () => {
       supabase.removeChannel(channel);
       setIsConnected(false);
     };
-  }, [userId, onNewChallenge]);
+  }, [userId]);
 
   return { subscription, isConnected, error };
 }

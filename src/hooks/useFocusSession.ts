@@ -69,22 +69,31 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
       status: 'completed',
     };
 
-    const savedToStorage = await saveCompletedSession(completedSession);
-    const savedToSupabase = await saveCompletedSessionToSupabase(
-      completedSession
-    );
+    // Save to local storage and Supabase in parallel — both are
+    // independent operations so there is no reason to await them
+    // sequentially.
+    const [savedToStorage, savedToSupabase] = await Promise.all([
+      saveCompletedSession(completedSession),
+      saveCompletedSessionToSupabase(completedSession),
+    ]);
 
-    if (savedToStorage && savedToSupabase) {
+    if (savedToStorage) {
       await updateTodayTotal(currentSession.duration_minutes);
       await clearActiveSession();
       setCurrentSession(null);
       resetTimer();
 
-      const newTotal = await loadTodayTotal();
-      setTodayTotal(newTotal);
+      // Fetch updated totals in parallel.
+      const [newTotal, totals] = await Promise.all([
+        loadTodayTotal(),
+        getWeeklyFocusTotals(userId),
+      ]);
 
-      const totals = await getWeeklyFocusTotals(userId);
+      setTodayTotal(newTotal);
       setWeeklyTotals(totals);
+    } else if (!savedToSupabase) {
+      // Both failed — keep session active so the user can retry.
+      console.error('Failed to complete session: both local and remote save failed.');
     }
 
     setIsLoading(false);

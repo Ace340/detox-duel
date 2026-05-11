@@ -219,6 +219,37 @@ export interface DuelStats {
   totalRewards: number;
 }
 
+/**
+ * A single duel history entry for display in the DuelHistoryScreen
+ */
+export interface DuelHistoryEntry {
+  duel: Duel;
+  opponentUsername: string;
+  opponentAvatarUrl?: string;
+  outcome: 'won' | 'lost' | 'draw';
+  myScreenTimeSeconds: number;
+  opponentScreenTimeSeconds: number;
+  myStreakDays: number;
+  opponentStreakDays: number;
+  myRewards: DuelReward[];
+}
+
+/**
+ * Leaderboard ranking entry computed from duel results
+ */
+export interface LeaderboardRanking {
+  user_id: string;
+  username: string;
+  avatar_url?: string;
+  totalWins: number;
+  totalLosses: number;
+  totalDuels: number;
+  currentStreak: number;
+  longestStreak: number;
+  badgesEarned: number;
+  winRate: number;
+}
+
 // =====================================================
 // UTILITY TYPES
 // =====================================================
