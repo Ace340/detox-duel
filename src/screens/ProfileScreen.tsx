@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Card, Button } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
@@ -8,6 +9,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { requestNotificationPermission, savePushToken, scheduleDailyReminder, scheduleWeeklySummary, cancelAllNotifications } from '../services/notifications';
 
 export default function ProfileScreen() {
+  const navigation = useNavigation();
   const { user, signOut } = useAuth();
   const { todayTotal } = useFocusSession(user?.id || '');
   const { notifications, unreadCount, loadNotifications, markAllRead } = useNotifications(user?.id || '');
@@ -79,6 +81,14 @@ export default function ProfileScreen() {
           ))}
         </Card>
       )}
+
+      {/* Screen Time Test (Development Only) */}
+      <Card title="Development Tools 🧪" subtitle="Testing features in development">
+        <Button
+          title="Test Screen Time Tracking"
+          onPress={() => navigation.navigate('ScreenTimeTest' as never)}
+        />
+      </Card>
 
       <Card title="Settings">
         <Button title="Sign Out" variant="secondary" onPress={signOut} />

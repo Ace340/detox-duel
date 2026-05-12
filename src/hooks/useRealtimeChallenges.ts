@@ -71,7 +71,8 @@ export function useRealtimeChallenges({
     }
 
     // Create unique channel name for this user's challenges
-    const channelName = `duels:${userId}:challenges`;
+    // Add random component to prevent channel reuse during remounts
+    const channelName = `duels:${userId}:challenges:${Math.random().toString(36).substring(2, 9)}`;
 
     // Create and configure realtime subscription
     const channel = supabase

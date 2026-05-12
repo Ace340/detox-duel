@@ -1,17 +1,46 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '../services/supabase';
 
-// Configure how notifications appear when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/**
+ * Lazy-load expo-notifications to avoid crashes in Expo Go.
+ * Static imports evaluate native code at startup — lazy import defers
+ * until first use and catches the failure gracefully.
+ */
+
+type NotificationsModule = typeof import('expo-notifications');
+
+let cachedNotifications: NotificationsModule | null = null;
+let loadAttempted = false;
+let isAvailable = false;
+
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (loadAttempted) return isAvailable ? cachedNotifications : null;
+  loadAttempted = true;
+
+  try {
+    const mod = await import('expo-notifications');
+    mod.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+    cachedNotifications = mod;
+    isAvailable = true;
+    return mod;
+  } catch {
+    console.warn(
+      'expo-notifications not available. Push notifications require a development build.'
+    );
+    return null;
+  }
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return false;
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -36,6 +65,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 export async function getPushToken(): Promise<string | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
   try {
     const { data: token } = await Notifications.getExpoPushTokenAsync();
     return token;
@@ -69,6 +101,9 @@ export async function savePushToken(userId: string): Promise<boolean> {
 export async function scheduleSessionReminder(
   durationMinutes: number
 ): Promise<string | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
   // Remind at 50% of session
   const triggerSeconds = Math.floor(durationMinutes * 60 * 0.5);
 
@@ -89,16 +124,23 @@ export async function scheduleSessionReminder(
 
 // Cancel a scheduled notification
 export async function cancelScheduledNotification(id: string): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(id);
 }
 
 // Cancel all scheduled notifications
 export async function cancelAllNotifications(): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
 // Schedule weekly summary (every Monday at 10 AM)
 export async function scheduleWeeklySummary(): Promise<string | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: '🏆 Weekly Results Are In!',
@@ -119,6 +161,9 @@ export async function scheduleWeeklySummary(): Promise<string | null> {
 
 // Schedule daily focus reminder (every day at 9 AM)
 export async function scheduleDailyReminder(): Promise<string | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: '🧠 Time to focus!',
@@ -141,6 +186,9 @@ export async function showImmediateNotification(
   title: string,
   body: string
 ): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title,

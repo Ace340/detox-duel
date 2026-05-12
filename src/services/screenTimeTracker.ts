@@ -1,6 +1,42 @@
 import { Platform } from 'react-native';
-import ExpoScreenTime from 'expo-screen-time';
 import type { AppUsageStats } from 'expo-screen-time';
+
+/**
+ * Lazy-load expo-screen-time to avoid crashes in Expo Go.
+ * Static imports evaluate native code at startup — lazy import defers
+ * until first use and catches the failure gracefully.
+ */
+
+type ScreenTimeModule = typeof import('expo-screen-time');
+
+let cachedModule: ScreenTimeModule | null = null;
+let loadAttempted = false;
+let isAvailable = false;
+
+async function getScreenTimeModule(): Promise<ScreenTimeModule | null> {
+  if (loadAttempted) return isAvailable ? cachedModule : null;
+  loadAttempted = true;
+
+  try {
+    const mod = await import('expo-screen-time');
+    if (mod.default === null) {
+      console.warn(
+        'expo-screen-time native module not available. ' +
+        'Screen time tracking requires a development build.'
+      );
+      return null;
+    }
+    cachedModule = mod;
+    isAvailable = true;
+    return mod;
+  } catch {
+    console.warn(
+      'expo-screen-time not available. ' +
+      'Screen time tracking requires a development build.'
+    );
+    return null;
+  }
+}
 
 /**
  * Screen time tracking service for Android
@@ -9,6 +45,7 @@ import type { AppUsageStats } from 'expo-screen-time';
  *
  * On iOS: Returns mock data (requires Apple's Family Controls entitlement)
  * On Android: Returns real screen time data from UsageStatsManager
+ * In Expo Go: Returns safe defaults (native module not available)
  */
 export class ScreenTimeTracker {
   /**
@@ -17,11 +54,10 @@ export class ScreenTimeTracker {
    * @returns Promise<boolean> - true if permission is granted
    */
   static async checkPermission(): Promise<boolean> {
-    if (Platform.OS === 'web') {
-      return false;
-    }
+    const mod = await getScreenTimeModule();
+    if (!mod || Platform.OS === 'web') return false;
 
-    return ExpoScreenTime.checkPermission();
+    return mod.default.checkPermission();
   }
 
   /**
@@ -30,9 +66,10 @@ export class ScreenTimeTracker {
    * On Android: Opens "Usage access" settings
    * On iOS: No-op (requires special entitlement)
    */
-  static requestPermission(): void {
-    if (Platform.OS === 'web') {
-      console.warn('Screen time tracking is not supported on web');
+  static async requestPermission(): Promise<void> {
+    const mod = await getScreenTimeModule();
+    if (!mod || Platform.OS === 'web') {
+      console.warn('Screen time tracking is not available (requires development build)');
       return;
     }
 
@@ -44,7 +81,7 @@ export class ScreenTimeTracker {
       return;
     }
 
-    ExpoScreenTime.requestPermission();
+    mod.default.requestPermission();
   }
 
   /**
@@ -67,8 +104,9 @@ export class ScreenTimeTracker {
     packageNames: string[],
     sinceTimestamp: number
   ): Promise<AppUsageStats> {
-    if (Platform.OS === 'web') {
-      console.warn('Screen time tracking is not supported on web');
+    const mod = await getScreenTimeModule();
+    if (!mod || Platform.OS === 'web') {
+      console.warn('Screen time tracking is not available (requires development build)');
       return {};
     }
 
@@ -80,7 +118,7 @@ export class ScreenTimeTracker {
     }
 
     // Convert milliseconds to seconds for the native call (expects timestamp in ms)
-    const usageStats = await ExpoScreenTime.getUsageForApps(
+    const usageStats = await mod.default.getUsageForApps(
       packageNames,
       sinceTimestamp
     );
@@ -96,7 +134,7 @@ export class ScreenTimeTracker {
    * Check if screen time tracking is supported on current platform
    */
   static isSupported(): boolean {
-    return Platform.OS === 'android' || Platform.OS === 'ios';
+    return isAvailable && (Platform.OS === 'android' || Platform.OS === 'ios');
   }
 
   /**

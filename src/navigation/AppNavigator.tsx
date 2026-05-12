@@ -21,6 +21,7 @@ import DuelResultsScreen from '../screens/DuelResultsScreen';
 import DuelHistoryScreen from '../screens/DuelHistoryScreen';
 import BragCardScreen from '../screens/BragCardScreen';
 import MyDuelsScreen from '../screens/MyDuelsScreen';
+import { ScreenTimeTestScreen } from '../screens/ScreenTimeTestScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -53,6 +54,7 @@ export type RootStackParamList = {
   };
   DuelHistory: undefined;
   BragCard: undefined;
+  ScreenTimeTest: undefined;
 };
 
 const tabs = [
@@ -141,6 +143,11 @@ function AppStack() {
         name="BragCard"
         component={BragCardScreen as React.ComponentType<any>}
         options={{ title: 'Share Stats' }}
+      />
+      <Stack.Screen
+        name="ScreenTimeTest"
+        component={ScreenTimeTestScreen as React.ComponentType<any>}
+        options={{ title: 'Screen Time Test' }}
       />
     </Stack.Navigator>
   );
