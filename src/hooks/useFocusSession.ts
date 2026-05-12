@@ -13,6 +13,7 @@ import {
   saveCompletedSessionToSupabase,
   getWeeklyFocusTotals,
 } from './useFocusSupabase';
+import { useStreaks } from './useStreaks';
 import { FocusSession, WeeklyScore } from '../types';
 
 interface UseFocusSessionReturn {
@@ -30,6 +31,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
   const [todayTotal, setTodayTotal] = useState<number>(0);
   const [weeklyTotals, setWeeklyTotals] = useState<WeeklyScore[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize streaks tracking
+  const { updateStreaks: updateStreaksHook } = useStreaks(userId);
 
   const { remainingSeconds, isRunning, startTimer, stopTimer, resetTimer } =
     useFocusTimer(0);
@@ -91,6 +95,13 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
 
       setTodayTotal(newTotal);
       setWeeklyTotals(totals);
+
+      // Update streaks after successful session completion
+      // This is a fire-and-forget operation - don't block on it
+      // If it fails, log error but don't break the session flow
+      updateStreaksHook(new Date()).catch((error) => {
+        console.error('Failed to update streaks:', error);
+      });
     } else if (!savedToSupabase) {
       // Both failed — keep session active so the user can retry.
       console.error('Failed to complete session: both local and remote save failed.');

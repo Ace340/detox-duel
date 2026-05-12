@@ -41,3 +41,37 @@ export interface AppInfo {
 
 // Export duel feature types
 export * from './duel';
+
+// =====================================================
+// STREAKS TRACKING TYPES
+// =====================================================
+
+/**
+ * User streak data from database
+ */
+export interface UserStreaks {
+  id: string;
+  user_id: string;
+  current_streak: number;
+  longest_streak: number;
+  last_active_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Streak milestone definition
+ */
+export interface Milestone {
+  days: number;
+  emoji: string;
+  label: string;
+}
+
+/**
+ * Result when checking for milestone
+ */
+export interface MilestoneResult {
+  milestone: Milestone | null;
+  reached: boolean;
+}

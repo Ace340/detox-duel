@@ -22,6 +22,7 @@ import DuelHistoryScreen from '../screens/DuelHistoryScreen';
 import BragCardScreen from '../screens/BragCardScreen';
 import MyDuelsScreen from '../screens/MyDuelsScreen';
 import { ScreenTimeTestScreen } from '../screens/ScreenTimeTestScreen';
+import StreakCalendarScreen from '../screens/StreakCalendarScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -55,6 +56,7 @@ export type RootStackParamList = {
   DuelHistory: undefined;
   BragCard: undefined;
   ScreenTimeTest: undefined;
+  StreakCalendar: undefined;
 };
 
 const tabs = [
@@ -148,6 +150,11 @@ function AppStack() {
         name="ScreenTimeTest"
         component={ScreenTimeTestScreen as React.ComponentType<any>}
         options={{ title: 'Screen Time Test' }}
+      />
+      <Stack.Screen
+        name="StreakCalendar"
+        component={StreakCalendarScreen as React.ComponentType<any>}
+        options={{ title: 'Streak Calendar' }}
       />
     </Stack.Navigator>
   );

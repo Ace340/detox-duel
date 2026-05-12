@@ -6,6 +6,7 @@ import {
   DuelType,
   formatDuelType,
 } from '../types/duel';
+import { useStreaks } from './useStreaks';
 
 /**
  * Configuration for creating a new duel
@@ -22,9 +23,12 @@ export interface CreateDuelConfig {
  * Custom hook for duel operations
  * Provides functions to create duels, load duels, and manage duel state
  */
-export function useDuel() {
+export function useDuel(userId: string = '') {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize streaks tracking for duel wins
+  const { updateStreaks: updateStreaksHook } = useStreaks(userId);
 
   /**
    * Creates a new duel with participants and notifications
@@ -187,9 +191,46 @@ export function useDuel() {
     }
   }, []);
 
+  /**
+   * Records a duel win and updates streaks
+   * This should be called when a duel is completed and the current user wins
+   *
+   * @param duelId - The ID of the completed duel
+   * @returns Promise resolving to true if successful, false otherwise
+   */
+  const recordDuelWin = useCallback(async (duelId: string): Promise<boolean> => {
+    if (!userId) {
+      console.error('recordDuelWin: userId is required');
+      setError('User ID is required');
+      return false;
+    }
+
+    try {
+      // TODO: Implement duel winner logic and database update
+      // For now, just update streaks when this function is called
+      // This is a placeholder for future implementation of duel completion logic
+
+      console.log(`Recording win for user ${userId} in duel ${duelId}`);
+
+      // Update streaks after winning a duel
+      // This is a fire-and-forget operation - don't block on it
+      // If it fails, log error but don't break the duel flow
+      await updateStreaksHook(new Date()).catch((error) => {
+        console.error('Failed to update streaks after duel win:', error);
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Error recording duel win:', err);
+      setError('Failed to record duel win');
+      return false;
+    }
+  }, [userId, updateStreaksHook]);
+
   return {
     loading,
     error,
     createDuel,
+    recordDuelWin,
   };
 }
