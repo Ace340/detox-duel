@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -6,7 +6,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
+import { checkOnboardingStatus } from '../hooks/useOnboardingStorage';
 import AuthScreen from '../screens/AuthScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen from '../screens/HomeScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import FriendsScreen from '../screens/FriendsScreen';
@@ -31,6 +33,7 @@ const Stack = createNativeStackNavigator();
 
 export type RootStackParamList = {
   Tabs: undefined;
+  Onboarding: undefined;
   FocusSession: {
     duration: number;
   };
@@ -96,83 +99,24 @@ function TabNavigator() {
   );
 }
 
-function AppStack() {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: { backgroundColor: COLORS.background },
-        headerTintColor: COLORS.text,
-      }}
-    >
-      <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
-      <Stack.Screen
-        name="FocusSession"
-        component={FocusSessionScreen as React.ComponentType<any>}
-        options={{ title: 'Focus Session', headerShown: false }}
-      />
-      <Stack.Screen
-        name="CreateDuel"
-        component={CreateDuelScreen as React.ComponentType<any>}
-        options={{ title: 'Create Duel' }}
-      />
-      <Stack.Screen
-        name="SelectFriend"
-        component={SelectFriendScreen as React.ComponentType<any>}
-        options={{ title: 'Select Opponent' }}
-      />
-      <Stack.Screen
-        name="ConfigureDuel"
-        component={ConfigureDuelScreen as React.ComponentType<any>}
-        options={{ title: 'Configure Duel' }}
-      />
-      <Stack.Screen
-        name="ReviewDuel"
-        component={ReviewDuelScreen as React.ComponentType<any>}
-        options={{ title: 'Review Challenge' }}
-      />
-      <Stack.Screen
-        name="DuelChallenge"
-        component={DuelChallengeScreen as React.ComponentType<any>}
-        options={{ title: 'Duel Challenge' }}
-      />
-      <Stack.Screen
-        name="DuelResults"
-        component={DuelResultsScreen as React.ComponentType<any>}
-        options={{ title: 'Duel Results' }}
-      />
-      <Stack.Screen
-        name="DuelHistory"
-        component={DuelHistoryScreen as React.ComponentType<any>}
-        options={{ title: 'Duel History' }}
-      />
-      <Stack.Screen
-        name="BragCard"
-        component={BragCardScreen as React.ComponentType<any>}
-        options={{ title: 'Share Stats' }}
-      />
-      <Stack.Screen
-        name="ScreenTimeTest"
-        component={ScreenTimeTestScreen as React.ComponentType<any>}
-        options={{ title: 'Screen Time Test' }}
-      />
-      <Stack.Screen
-        name="StreakCalendar"
-        component={StreakCalendarScreen as React.ComponentType<any>}
-        options={{ title: 'Streak Calendar' }}
-      />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen as React.ComponentType<any>}
-        options={{ title: 'Notifications', headerShown: false }}
-      />
-    </Stack.Navigator>
-  );
-}
-
 export default function AppNavigator() {
   const { session, loading } = useAuth();
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
-  if (loading) {
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      if (session) {
+        const completed = await checkOnboardingStatus();
+        setHasCompletedOnboarding(completed);
+      }
+      setCheckingOnboarding(false);
+    };
+
+    checkOnboarding();
+  }, [session]);
+
+  if (loading || checkingOnboarding) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -182,7 +126,84 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {session ? <AppStack /> : <AuthScreen />}
+      {!session ? (
+        <AuthScreen />
+      ) : (
+        <Stack.Navigator
+          initialRouteName={hasCompletedOnboarding ? 'Tabs' : 'Onboarding'}
+          screenOptions={{
+            headerStyle: { backgroundColor: COLORS.background },
+            headerTintColor: COLORS.text,
+          }}
+        >
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen as React.ComponentType<any>}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="FocusSession"
+            component={FocusSessionScreen as React.ComponentType<any>}
+            options={{ title: 'Focus Session', headerShown: false }}
+          />
+          <Stack.Screen
+            name="CreateDuel"
+            component={CreateDuelScreen as React.ComponentType<any>}
+            options={{ title: 'Create Duel' }}
+          />
+          <Stack.Screen
+            name="SelectFriend"
+            component={SelectFriendScreen as React.ComponentType<any>}
+            options={{ title: 'Select Opponent' }}
+          />
+          <Stack.Screen
+            name="ConfigureDuel"
+            component={ConfigureDuelScreen as React.ComponentType<any>}
+            options={{ title: 'Configure Duel' }}
+          />
+          <Stack.Screen
+            name="ReviewDuel"
+            component={ReviewDuelScreen as React.ComponentType<any>}
+            options={{ title: 'Review Challenge' }}
+          />
+          <Stack.Screen
+            name="DuelChallenge"
+            component={DuelChallengeScreen as React.ComponentType<any>}
+            options={{ title: 'Duel Challenge' }}
+          />
+          <Stack.Screen
+            name="DuelResults"
+            component={DuelResultsScreen as React.ComponentType<any>}
+            options={{ title: 'Duel Results' }}
+          />
+          <Stack.Screen
+            name="DuelHistory"
+            component={DuelHistoryScreen as React.ComponentType<any>}
+            options={{ title: 'Duel History' }}
+          />
+          <Stack.Screen
+            name="BragCard"
+            component={BragCardScreen as React.ComponentType<any>}
+            options={{ title: 'Share Stats' }}
+          />
+          <Stack.Screen
+            name="ScreenTimeTest"
+            component={ScreenTimeTestScreen as React.ComponentType<any>}
+            options={{ title: 'Screen Time Test' }}
+          />
+          <Stack.Screen
+            name="StreakCalendar"
+            component={StreakCalendarScreen as React.ComponentType<any>}
+            options={{ title: 'Streak Calendar' }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen as React.ComponentType<any>}
+            options={{ title: 'Notifications', headerShown: false }}
+          />
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 }

@@ -90,5 +90,31 @@ export function useAuth() {
     setSession(null);
   }, []);
 
-  return { user, session, loading, signUp, signIn, signOut };
+  const updateDailyGoal = useCallback(async (hours: number) => {
+    if (!user?.id) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ daily_screen_time_goal: hours })
+        .eq('id', user.id);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Update local user state
+      setUser({ ...user, daily_screen_time_goal: hours });
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }, [user]);
+
+  return { user, session, loading, signUp, signIn, signOut, updateDailyGoal };
 }
