@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { Card } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
+import { useBadges } from '../hooks/useBadges';
 import { fetchFriendsLeaderboard, fetchGlobalLeaderboard } from '../hooks/useDuelHistory';
 import type { LeaderboardRanking } from '../types/duel';
 
@@ -12,6 +13,7 @@ const RANK_EMOJIS = ['🥇', '🥈', '🥉'];
 
 export default function LeaderboardScreen() {
   const { user } = useAuth();
+  const { checkAllBadges } = useBadges(user?.id);
   const [rankings, setRankings] = useState<LeaderboardRanking[]>([]);
   const [scope, setScope] = useState<FilterScope>('friends');
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,16 @@ export default function LeaderboardScreen() {
         ? await fetchFriendsLeaderboard(user.id)
         : await fetchGlobalLeaderboard();
       setRankings(data);
+
+      // Check if user is in top 3, then check for badges
+      const userRank = data.findIndex(r => r.user_id === user.id);
+      if (userRank >= 0 && userRank < 3) {
+        // User is in top 3, check for "Top 3" badge
+        // This is a fire-and-forget operation - don't block on it
+        checkAllBadges().catch((error) => {
+          console.error('Failed to check badges for leaderboard position:', error);
+        });
+      }
     } catch (err) {
       console.error('Error loading leaderboard:', err);
     } finally {

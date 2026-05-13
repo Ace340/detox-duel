@@ -14,6 +14,7 @@ import {
   getWeeklyFocusTotals,
 } from './useFocusSupabase';
 import { useStreaks } from './useStreaks';
+import { useBadges } from './useBadges';
 import { FocusSession, WeeklyScore } from '../types';
 
 interface UseFocusSessionReturn {
@@ -34,6 +35,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
 
   // Initialize streaks tracking
   const { updateStreaks: updateStreaksHook } = useStreaks(userId);
+
+  // Initialize badge checking
+  const { checkAllBadges } = useBadges(userId);
 
   const { remainingSeconds, isRunning, startTimer, stopTimer, resetTimer } =
     useFocusTimer(0);
@@ -101,6 +105,13 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
       // If it fails, log error but don't break the session flow
       updateStreaksHook(new Date()).catch((error) => {
         console.error('Failed to update streaks:', error);
+      });
+
+      // Check for badges after session completion
+      // This is a fire-and-forget operation - don't block on it
+      // If it fails, log error but don't break the session flow
+      checkAllBadges().catch((error) => {
+        console.error('Failed to check badges:', error);
       });
     } else if (!savedToSupabase) {
       // Both failed — keep session active so the user can retry.

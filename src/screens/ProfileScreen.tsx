@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Card, Button } from '../components/ui';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useFocusSession } from '../hooks/useFocusSession';
 import { useNotifications } from '../hooks/useNotifications';
+import { useBadges } from '../hooks/useBadges';
+import { BadgeCard } from '../components/BadgeCard';
+import { BadgeCelebration } from '../components/BadgeCelebration';
 import { requestNotificationPermission, savePushToken, scheduleDailyReminder, scheduleWeeklySummary, cancelAllNotifications } from '../services/notifications';
+import type { Badge } from '../types';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { user, signOut } = useAuth();
   const { todayTotal } = useFocusSession(user?.id || '');
   const { notifications, unreadCount, loadNotifications, markAllRead } = useNotifications(user?.id || '');
+  const { userBadges, badges } = useBadges(user?.id);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   useEffect(() => { loadNotifications(); }, [user?.id]);
@@ -39,6 +45,27 @@ export default function ProfileScreen() {
 
       <Card title={user?.username || 'User'} subtitle={user?.email}>
         <Text style={styles.stat}>📅 Total focus time: {todayTotal} min</Text>
+      </Card>
+
+      {/* Recent Badges */}
+      <Card title="Recent Badges 🏆" subtitle="Your latest achievements">
+        {userBadges && userBadges.length > 0 ? (
+          <View style={styles.badgesGrid}>
+            {userBadges.slice(0, 3).map((userBadge) => {
+              const badge = badges?.find((b) => b.id === userBadge.badge_id);
+              return badge ? (
+                <BadgeCard
+                  key={userBadge.id}
+                  badge={badge}
+                  isEarned={true}
+                  style={styles.badgeCard}
+                />
+              ) : null;
+            })}
+          </View>
+        ) : (
+          <Text style={styles.noBadges}>No badges yet - keep focused!</Text>
+        )}
       </Card>
 
       {/* Notifications */}
@@ -104,6 +131,21 @@ const styles = StyleSheet.create({
   stat: { color: COLORS.text, fontSize: 16, marginBottom: SPACING.sm },
   spacer: { height: SPACING.md },
   markRead: { color: COLORS.primary, fontSize: 14, marginBottom: SPACING.sm },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  badgeCard: {
+    width: '48%',
+    marginBottom: SPACING.md,
+  },
+  noBadges: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    paddingVertical: SPACING.lg,
+  },
   notifRow: {
     paddingVertical: 8,
     borderBottomWidth: 1,

@@ -75,3 +75,55 @@ export interface MilestoneResult {
   milestone: Milestone | null;
   reached: boolean;
 }
+
+// =====================================================
+// BADGES SYSTEM TYPES
+// =====================================================
+
+/**
+ * Badge data from badges table
+ */
+export interface Badge {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  category: string;
+  condition: BadgeCondition;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Badge condition JSONB structure
+ */
+export interface BadgeCondition {
+  sessions_completed?: number;
+  streak_days?: number;
+  duels_won?: number;
+  friends_added?: number;
+  leaderboard_position?: number;
+  focus_hours?: number;
+}
+
+/**
+ * User badge data from user_badges table
+ */
+export interface UserBadge {
+  id: string;
+  user_id: string;
+  badge_id: string;
+  earned_at: string;
+}
+
+/**
+ * User metrics for badge checking
+ */
+export interface UserMetrics {
+  sessions_completed?: number;
+  streak_days?: number;
+  duels_won?: number;
+  friends_added?: number;
+  leaderboard_position?: number;
+  focus_hours?: number;
+}

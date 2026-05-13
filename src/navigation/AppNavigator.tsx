@@ -10,6 +10,7 @@ import AuthScreen from '../screens/AuthScreen';
 import HomeScreen from '../screens/HomeScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import FriendsScreen from '../screens/FriendsScreen';
+import BadgesScreen from '../screens/BadgesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FocusSessionScreen from '../screens/FocusSessionScreen';
 import CreateDuelScreen from '../screens/CreateDuelScreen';
@@ -64,6 +65,7 @@ const tabs = [
   { name: 'Leaderboard', component: LeaderboardScreen, icon: '🏆' },
   { name: 'My Duels', component: MyDuelsScreen, icon: '⚔️' },
   { name: 'Friends', component: FriendsScreen, icon: '👥' },
+  { name: 'Badges', component: BadgesScreen, icon: '🏅' },
   { name: 'Profile', component: ProfileScreen, icon: '👤' },
 ];
 

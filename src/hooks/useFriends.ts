@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../services/supabase';
+import { useBadges } from './useBadges';
 
 export interface FriendUser {
   id: string;
@@ -14,6 +15,9 @@ export function useFriends(userId: string) {
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [pending, setPending] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Initialize badge checking
+  const { checkAllBadges } = useBadges(userId);
 
   const loadFriends = useCallback(async () => {
     if (!userId) return;
@@ -141,8 +145,16 @@ export function useFriends(userId: string) {
       return false;
     }
     await loadFriends();
+
+    // Check for badges after accepting a friend
+    // This is a fire-and-forget operation - don't block on it
+    // If it fails, log error but don't break the friendship flow
+    checkAllBadges().catch((error) => {
+      console.error('Failed to check badges after accepting friend:', error);
+    });
+
     return true;
-  }, [loadFriends]);
+  }, [loadFriends, checkAllBadges]);
 
   const removeFriend = useCallback(async (friendshipId: string): Promise<boolean> => {
     const { error } = await supabase

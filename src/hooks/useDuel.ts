@@ -7,6 +7,7 @@ import {
   formatDuelType,
 } from '../types/duel';
 import { useStreaks } from './useStreaks';
+import { useBadges } from './useBadges';
 
 /**
  * Configuration for creating a new duel
@@ -29,6 +30,9 @@ export function useDuel(userId: string = '') {
 
   // Initialize streaks tracking for duel wins
   const { updateStreaks: updateStreaksHook } = useStreaks(userId);
+
+  // Initialize badge checking
+  const { checkAllBadges } = useBadges(userId);
 
   /**
    * Creates a new duel with participants and notifications
@@ -214,9 +218,16 @@ export function useDuel(userId: string = '') {
 
       // Update streaks after winning a duel
       // This is a fire-and-forget operation - don't block on it
-      // If it fails, log error but don't break the duel flow
+      // If it fails, log error but don't break duel flow
       await updateStreaksHook(new Date()).catch((error) => {
         console.error('Failed to update streaks after duel win:', error);
+      });
+
+      // Check for badges after winning a duel
+      // This is a fire-and-forget operation - don't block on it
+      // If it fails, log error but don't break duel flow
+      checkAllBadges().catch((error) => {
+        console.error('Failed to check badges after duel win:', error);
       });
 
       return true;
