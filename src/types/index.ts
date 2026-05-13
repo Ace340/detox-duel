@@ -127,3 +127,81 @@ export interface UserMetrics {
   leaderboard_position?: number;
   focus_hours?: number;
 }
+
+// =====================================================
+// NOTIFICATIONS SYSTEM TYPES
+// =====================================================
+
+/**
+ * Notification type enumeration
+ */
+export type NotificationType =
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'duel_challenge'
+  | 'duel_result'
+  | 'badge_earned'
+  | 'streak_milestone'
+  | 'weekly_summary';
+
+/**
+ * Notification data from database
+ */
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: Record<string, any>;
+  read: boolean;
+  from_user_id?: string;
+  created_at: string;
+  updated_at: string;
+  from_username?: string; // Fetched from users table
+}
+
+/**
+ * Notification preferences
+ */
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  duel_challenges: boolean;
+  duel_results: boolean;
+  badges: boolean;
+  streaks: boolean;
+  weekly_summary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Notification data payload types
+ */
+export interface DuelChallengeData {
+  duel_id: string;
+  from_username?: string;
+}
+
+export interface DuelResultData {
+  duel_id: string;
+  won: boolean;
+  score?: number;
+}
+
+export interface BadgeEarnedData {
+  badge_id: string;
+  badge_name: string;
+  badge_emoji: string;
+}
+
+export interface StreakMilestoneData {
+  days: number;
+  emoji: string;
+}
+
+export interface FriendRequestData {
+  from_user_id: string;
+  from_username?: string;
+}

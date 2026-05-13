@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { NotificationBellIcon } from '../components/NotificationBellIcon';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { loadActiveSession, clearActiveSession, loadCompletedSessions, loadTodayTotal } from '../hooks/useFocusStorage';
 import { usePendingChallenges } from '../hooks/usePendingChallenges';
 import { useRealtimeChallenges } from '../hooks/useRealtimeChallenges';
 import { useStreaks } from '../hooks/useStreaks';
+import { useNotifications } from '../hooks/useNotifications';
 import { StreakMilestoneCelebration } from '../components/StreakMilestoneCelebration';
 import { StreakLostNotification } from '../components/StreakLostNotification';
 import type { FocusSession } from '../types';
@@ -31,6 +33,9 @@ export default function HomeScreen({ navigation }: any) {
 
   // Pending challenges hooks
   const { pendingChallenges, loading: pendingLoading, error: pendingError, loadPendingChallenges } = usePendingChallenges(user?.id || '');
+
+  // Notifications hook
+  const { unreadCount, loadNotifications } = useNotifications(user?.id || '');
 
   // Realtime challenge subscription
   const handleNewChallenge = useCallback(() => {
@@ -72,6 +77,7 @@ export default function HomeScreen({ navigation }: any) {
     // Load pending challenges
     if (user?.id) {
       loadPendingChallenges();
+      loadNotifications();
     }
   };
 
@@ -130,8 +136,17 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.greeting}>Ready to focus? 🎯</Text>
+    <>
+      {/* Header with notification bell */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Ready to focus? 🎯</Text>
+        <NotificationBellIcon
+          unreadCount={unreadCount}
+          onPress={() => navigation.navigate('Notifications' as never)}
+        />
+      </View>
+
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Streak Counter */}
       <TouchableOpacity
@@ -264,14 +279,23 @@ export default function HomeScreen({ navigation }: any) {
       <Card title="Weekly Rank" subtitle="Add friends to compete!">
         <Text style={styles.stat}>🏆 You: {todayTotal} min this week</Text>
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: SPACING.lg },
-  greeting: { color: COLORS.text, fontSize: 28, fontWeight: 'bold', marginBottom: SPACING.lg },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.background,
+  },
+  greeting: { color: COLORS.text, fontSize: 24, fontWeight: 'bold' },
   label: { color: COLORS.textSecondary, fontSize: 14, marginBottom: SPACING.sm },
   presets: { gap: SPACING.sm },
   spacer: { height: SPACING.md },

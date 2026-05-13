@@ -10,6 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Card, Button } from '../components/ui';
 import { BadgeCard } from '../components/BadgeCard';
+import { NotificationPreferenceToggle } from '../components/NotificationPreferenceToggle';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useFocusSession } from '../hooks/useFocusSession';
@@ -24,6 +25,7 @@ import {
   scheduleWeeklySummary,
   cancelAllNotifications,
 } from '../services/notifications';
+import type { NotificationPreferences } from '../types';
 
 // =====================================================
 // HELPER COMPONENTS
@@ -154,15 +156,23 @@ export default function ProfileScreen() {
   const { streaks } = useStreaks(user?.id || '');
   const { stats, loadHistory } = useDuelHistory(user?.id || '');
   const { userBadges, badges } = useBadges(user?.id);
-  const { notifications, unreadCount, loadNotifications, markAllRead } = useNotifications(user?.id || '');
+  const { notifications, unreadCount, loadNotifications, markAllRead, preferences, loadPreferences, updatePreferences } = useNotifications(user?.id || '');
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(2); // Default 2 hours
+  const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
 
   useEffect(() => {
     loadNotifications();
+    loadPreferences();
     loadHistory();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (preferences) {
+      setLocalPreferences(preferences);
+    }
+  }, [preferences]);
 
   const handleEnableNotifications = async () => {
     const ok = await savePushToken(user?.id || '');
@@ -186,6 +196,22 @@ export default function ProfileScreen() {
     } else {
       handleEnableNotifications();
     }
+  };
+
+  const handleNotificationPreferenceChange = async (
+    key: keyof NotificationPreferences,
+    value: boolean
+  ) => {
+    if (!localPreferences) return;
+
+    // Update local state immediately for responsiveness
+    setLocalPreferences({
+      ...localPreferences,
+      [key]: value,
+    });
+
+    // Persist to database
+    await updatePreferences({ [key]: value });
   };
 
   // Format member since date
@@ -290,6 +316,45 @@ export default function ProfileScreen() {
             <View style={[styles.toggleDot, notifEnabled && styles.toggleDotOn]} />
           }
         />
+
+        {/* Notification Preferences */}
+        {notifEnabled && localPreferences && (
+          <>
+            <View style={styles.preferencesHeader}>
+              <Text style={styles.preferencesTitle}>Notification Preferences</Text>
+            </View>
+            <NotificationPreferenceToggle
+              icon="⚔️"
+              label="Duel Challenges"
+              value={localPreferences.duel_challenges}
+              onChange={(value) => handleNotificationPreferenceChange('duel_challenges', value)}
+            />
+            <NotificationPreferenceToggle
+              icon="🏆"
+              label="Duel Results"
+              value={localPreferences.duel_results}
+              onChange={(value) => handleNotificationPreferenceChange('duel_results', value)}
+            />
+            <NotificationPreferenceToggle
+              icon="🏅"
+              label="Badges"
+              value={localPreferences.badges}
+              onChange={(value) => handleNotificationPreferenceChange('badges', value)}
+            />
+            <NotificationPreferenceToggle
+              icon="🔥"
+              label="Streak Milestones"
+              value={localPreferences.streaks}
+              onChange={(value) => handleNotificationPreferenceChange('streaks', value)}
+            />
+            <NotificationPreferenceToggle
+              icon="📊"
+              label="Weekly Summary"
+              value={localPreferences.weekly_summary}
+              onChange={(value) => handleNotificationPreferenceChange('weekly_summary', value)}
+            />
+          </>
+        )}
         <View style={styles.dailyGoalContainer}>
           <View style={styles.dailyGoalHeader}>
             <Text style={styles.settingIcon}>🎯</Text>
@@ -646,6 +711,18 @@ const styles = StyleSheet.create({
   signOutButton: {
     marginTop: SPACING.md,
     marginBottom: SPACING.xl,
+  },
+
+  // Notification Preferences
+  preferencesHeader: {
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  preferencesTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 
   // Notifications

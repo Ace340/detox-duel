@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../services/supabase';
+import type { Notification, NotificationType, NotificationPreferences } from '../types';
 
 export interface AppNotification {
   id: string;
-  type: 'friend_request' | 'friend_accepted' | 'weekly_summary' | 'challenge_invite';
+  type: NotificationType;
   from_user_id?: string;
   title: string;
   body: string;
@@ -17,6 +18,7 @@ export function useNotifications(userId: string) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
 
   const loadNotifications = useCallback(async () => {
     if (!userId) return;
@@ -58,6 +60,72 @@ export function useNotifications(userId: string) {
     setUnreadCount(mapped.filter(n => !n.read).length);
     setLoading(false);
   }, [userId]);
+
+  const loadPreferences = useCallback(async () => {
+    if (!userId) return;
+
+    // Try to load existing preferences
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // No preferences exist for this user - create defaults
+      const defaultPreferences = {
+        user_id: userId,
+        duel_challenges: true,
+        duel_results: true,
+        badges: true,
+        streaks: true,
+        weekly_summary: false,
+      };
+
+      const { data: newData, error: insertError } = await supabase
+        .from('notification_preferences')
+        .insert([defaultPreferences])
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating default notification preferences:', insertError);
+        return;
+      }
+
+      setPreferences(newData);
+      return;
+    }
+
+    if (error) {
+      console.error('Error loading notification preferences:', error);
+      return;
+    }
+
+    setPreferences(data);
+  }, [userId]);
+
+  const updatePreferences = useCallback(async (
+    updates: Partial<NotificationPreferences>
+  ): Promise<boolean> => {
+    if (!userId) return false;
+
+    const { error } = await supabase
+      .from('notification_preferences')
+      .upsert({
+        user_id: userId,
+        ...updates,
+      });
+
+    if (error) {
+      console.error('Error updating notification preferences:', error);
+      return false;
+    }
+
+    // Refresh preferences
+    await loadPreferences();
+    return true;
+  }, [userId, loadPreferences]);
 
   const markAsRead = useCallback(async (notificationId: string) => {
     await supabase
@@ -113,9 +181,12 @@ export function useNotifications(userId: string) {
     notifications,
     unreadCount,
     loading,
+    preferences,
     loadNotifications,
+    loadPreferences,
     markAsRead,
     markAllRead,
     createNotification,
+    updatePreferences,
   };
 }
