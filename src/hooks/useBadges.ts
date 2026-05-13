@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import type { Badge, UserBadge, UserMetrics } from '../types';
 import { useBadgeMetrics } from './useBadgeMetrics';
@@ -45,6 +45,13 @@ export function useBadges(userId: string | undefined): UseBadgesReturn {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [newBadge, setNewBadge] = useState<(Badge & { earned_at: string }) | null>(null);
+
+  // Ref to track the current channel for proper cleanup
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Generate a unique identifier for this hook instance to avoid channel conflicts
+  // This is necessary because useBadges is called from multiple components/screens
+  const instanceId = useRef(Math.random().toString(36).substring(2, 9));
 
   /**
    * Fetch all badges from badges table
@@ -280,9 +287,22 @@ export function useBadges(userId: string | undefined): UseBadgesReturn {
     fetchBadges();
     fetchUserBadges();
 
-    // Set up realtime subscription for new badges
+    // Only set up realtime subscription if userId is defined
+    if (!userId) {
+      return;
+    }
+
+    // Clean up any existing subscription first
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Set up realtime subscription for new badges with unique channel name
+    // The instanceId ensures each hook instance gets a unique channel
+    const channelName = `user_badges_insert_${userId}_${instanceId.current}`;
     const channel = supabase
-      .channel('user_badges_insert')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -310,13 +330,26 @@ export function useBadges(userId: string | undefined): UseBadgesReturn {
           fetchUserBadges();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Realtime subscription for badges established: ${channelName}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`Realtime subscription error for badges: ${channelName}`);
+        }
+      });
+
+    // Store channel in ref
+    channelRef.current = channel;
 
     // Cleanup subscription
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        console.log(`Cleaning up subscription: ${channelName}`);
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [userId, fetchBadges, fetchUserBadges]);
+  }, [userId]);
 
   return {
     badges,
