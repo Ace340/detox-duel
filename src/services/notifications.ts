@@ -198,3 +198,44 @@ export async function showImmediateNotification(
     trigger: null, // immediate
   });
 }
+
+/**
+ * Create a database notification for a user
+ * Used for in-app notifications like challenge invites, friend requests, etc.
+ *
+ * @param userId - The user ID to send the notification to
+ * @param type - Notification type (e.g., 'challenge_invite', 'challenge_result', 'friend_request')
+ * @param title - Notification title
+ * @param body - Notification body/message
+ * @param data - Additional data payload (JSON object)
+ * @returns Promise resolving to true if successful, false otherwise
+ */
+export async function sendNotification(
+  userId: string,
+  type: string,
+  title: string,
+  body: string,
+  data?: Record<string, any>
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('notifications')
+      .insert([{
+        user_id: userId,
+        type,
+        title,
+        body,
+        data: data || {},
+      }]);
+
+    if (error) {
+      console.error('Failed to create notification:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error sending notification:', err);
+    return false;
+  }
+}

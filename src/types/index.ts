@@ -43,6 +43,9 @@ export interface AppInfo {
 // Export duel feature types
 export * from './duel';
 
+// Export group challenge feature types
+export * from './groupChallenge';
+
 // =====================================================
 // STREAKS TRACKING TYPES
 // =====================================================

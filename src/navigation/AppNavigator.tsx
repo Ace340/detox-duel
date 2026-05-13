@@ -27,6 +27,10 @@ import MyDuelsScreen from '../screens/MyDuelsScreen';
 import { ScreenTimeTestScreen } from '../screens/ScreenTimeTestScreen';
 import StreakCalendarScreen from '../screens/StreakCalendarScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import CreateChallengeScreen from '../screens/CreateChallengeScreen';
+import ActiveChallengesScreen from '../screens/ActiveChallengesScreen';
+import ChallengeDetailScreen from '../screens/ChallengeDetailScreen';
+import ChallengeResultsScreen from '../screens/ChallengeResultsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -63,6 +67,10 @@ export type RootStackParamList = {
   ScreenTimeTest: undefined;
   StreakCalendar: undefined;
   Notifications: undefined;
+  CreateChallengeScreen: { friendId?: string };
+  ActiveChallengesScreen: { filter?: 'pending' | 'active' | 'completed' };
+  ChallengeDetailScreen: { challengeId: string };
+  ChallengeResultsScreen: { challengeId: string };
 };
 
 const tabs = [
@@ -201,6 +209,26 @@ export default function AppNavigator() {
             name="Notifications"
             component={NotificationsScreen as React.ComponentType<any>}
             options={{ title: 'Notifications', headerShown: false }}
+          />
+          <Stack.Screen
+            name="CreateChallengeScreen"
+            component={CreateChallengeScreen as React.ComponentType<any>}
+            options={{ title: 'Create Challenge' }}
+          />
+          <Stack.Screen
+            name="ActiveChallengesScreen"
+            component={ActiveChallengesScreen as React.ComponentType<any>}
+            options={{ title: 'My Challenges' }}
+          />
+          <Stack.Screen
+            name="ChallengeDetailScreen"
+            component={ChallengeDetailScreen as React.ComponentType<any>}
+            options={{ title: 'Challenge Details' }}
+          />
+          <Stack.Screen
+            name="ChallengeResultsScreen"
+            component={ChallengeResultsScreen as React.ComponentType<any>}
+            options={{ title: 'Challenge Results' }}
           />
         </Stack.Navigator>
       )}
