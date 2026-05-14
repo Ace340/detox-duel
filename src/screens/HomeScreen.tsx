@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { NotificationBellIcon } from '../components/NotificationBellIcon';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { EmptyState } from '../components/EmptyState';
+import { CardSkeleton, ListItemSkeleton } from '../components/SkeletonLoader';
 import { COLORS, SPACING, FOCUS_PRESETS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { loadActiveSession, clearActiveSession, loadCompletedSessions, loadTodayTotal } from '../hooks/useFocusStorage';
@@ -24,6 +27,8 @@ export default function HomeScreen({ navigation }: any) {
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
   const [topCategory, setTopCategory] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Streaks state
   const [showMilestone, setShowMilestone] = useState(false);
@@ -52,6 +57,7 @@ export default function HomeScreen({ navigation }: any) {
   });
 
   const loadData = async () => {
+    setLoading(true);
     const active = await loadActiveSession();
     const completed = await loadCompletedSessions();
 
@@ -95,7 +101,15 @@ export default function HomeScreen({ navigation }: any) {
       loadPendingChallenges();
       loadNotifications();
     }
+
+    setLoading(false);
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => { loadData(); }, [user?.id]);
 
@@ -162,7 +176,13 @@ export default function HomeScreen({ navigation }: any) {
         />
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+      >
 
       {/* Streak Counter */}
       <TouchableOpacity
@@ -310,8 +330,18 @@ export default function HomeScreen({ navigation }: any) {
       </Card>
 
       <Card title="Recent Sessions" subtitle="Your latest focus sessions">
-        {recentSessions.length === 0 ? (
-          <Text style={styles.stat}>No sessions yet. Start your first one!</Text>
+        {loading ? (
+          <>
+            <ListItemSkeleton />
+            <ListItemSkeleton />
+          </>
+        ) : recentSessions.length === 0 ? (
+          <EmptyState
+            emoji="🎯"
+            message="No sessions yet. Start your first one!"
+            actionText="Start Focusing"
+            onAction={handleStartFocus}
+          />
         ) : (
           recentSessions.map((session, i) => (
             <View key={i} style={styles.sessionRow}>

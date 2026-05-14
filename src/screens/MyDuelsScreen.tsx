@@ -25,6 +25,7 @@ import {
 } from '../hooks/useMyDuels';
 import { formatDuelType, type DuelType } from '../types/duel';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { LoadingSpinner } from '../components/LoadingSpinner';
 
 type MyDuelsNavProp = NativeStackNavigationProp<RootStackParamList, 'Tabs'>;
 
@@ -68,8 +69,7 @@ export default function MyDuelsScreen() {
   if (loading && duels.pending.length === 0 && duels.active.length === 0 && duels.completed.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading your duels...</Text>
+        <LoadingSpinner text="Loading your duels..." />
       </View>
     );
   }

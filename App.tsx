@@ -3,11 +3,14 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from './src/constants/theme';
 import AppNavigator from './src/navigation/AppNavigator';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 export default function App() {
   return (
     <SafeAreaProvider style={styles.container}>
-      <AppNavigator />
+      <ErrorBoundary>
+        <AppNavigator />
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

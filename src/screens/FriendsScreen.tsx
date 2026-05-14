@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { Card, Button } from '../components/ui';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { EmptyState } from '../components/EmptyState';
+import { ListItemSkeleton } from '../components/SkeletonLoader';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useFriends } from '../hooks/useFriends';
@@ -14,8 +17,15 @@ export default function FriendsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FriendUser[]>([]);
   const [searching, setSearching] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadFriends(); }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadFriends();
+    setRefreshing(false);
+  };
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
@@ -60,7 +70,13 @@ export default function FriendsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+      }
+    >
       <Text style={styles.title}>Friends 👥</Text>
 
       {/* Your username */}
@@ -120,8 +136,18 @@ export default function FriendsScreen() {
 
       {/* Friends list */}
       <Card title={`Your Friends (${friends.length})`} subtitle={friends.length === 0 ? 'No friends yet — add someone to start competing!' : undefined}>
-        {friends.length === 0 ? (
-          <Text style={styles.empty}>Search for usernames above to send friend requests.</Text>
+        {loading ? (
+          <>
+            <ListItemSkeleton />
+            <ListItemSkeleton />
+          </>
+        ) : friends.length === 0 ? (
+          <EmptyState
+            emoji="👥"
+            message="No friends yet — search for usernames above to add friends!"
+            actionText="Add Friend"
+            onAction={() => {}}
+          />
         ) : (
           friends.map(friend => (
             <View key={friend.friendship_id} style={styles.userRow}>

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { BadgeCard } from '../components/BadgeCard';
 import { BadgeCelebration } from '../components/BadgeCelebration';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { EmptyState } from '../components/EmptyState';
 import { useBadges } from '../hooks/useBadges';
 import { useAuth } from '../hooks/useAuth';
 import { COLORS, SPACING } from '../constants/theme';
@@ -13,6 +15,13 @@ export default function BadgesScreen() {
   const { user } = useAuth();
   const { badges, userBadges, loading, newBadge, dismissNewBadge } = useBadges(user?.id);
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Refresh logic would go here
+    setRefreshing(false);
+  };
 
   const handleBadgePress = (badge: Badge) => {
     Alert.alert(badge.name, badge.description, [{ text: 'OK' }]);
@@ -57,7 +66,13 @@ export default function BadgesScreen() {
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+      >
         <Text style={styles.title}>Badges 🏅</Text>
         <Text style={styles.subtitle}>Earn badges by completing challenges!</Text>
 
@@ -106,12 +121,12 @@ export default function BadgesScreen() {
         </View>
 
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading badges...</Text>
-          </View>
+          <LoadingSpinner text="Loading badges..." />
         ) : badges && badges.length === 0 ? (
-          <Text style={styles.emptyText}>No badges available yet</Text>
+          <EmptyState
+            emoji="🏅"
+            message="No badges available yet"
+          />
         ) : (
           <View style={styles.gridContainer}>
             {getFilteredBadges().map(badge => {

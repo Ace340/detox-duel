@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Card } from '../components/ui';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { EmptyState } from '../components/EmptyState';
+import { ListItemSkeleton } from '../components/SkeletonLoader';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useBadges } from '../hooks/useBadges';
@@ -17,6 +20,7 @@ export default function LeaderboardScreen() {
   const [rankings, setRankings] = useState<LeaderboardRanking[]>([]);
   const [scope, setScope] = useState<FilterScope>('friends');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadLeaderboard = async () => {
     if (!user?.id) return;
@@ -43,12 +47,24 @@ export default function LeaderboardScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadLeaderboard();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     loadLeaderboard();
   }, [user?.id, scope]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+      }
+    >
       <Text style={styles.title}>Leaderboard 🏆</Text>
       <Text style={styles.subtitle}>Duel rankings — who's the best?</Text>
 
@@ -73,18 +89,22 @@ export default function LeaderboardScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading rankings...</Text>
-        </View>
+        <>
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+          <ListItemSkeleton />
+        </>
       ) : rankings.length === 0 ? (
-        <Card title="No rankings yet" subtitle="Complete duels to see the leaderboard">
-          <Text style={styles.emptyText}>
-            {scope === 'friends'
+        <EmptyState
+          emoji="🏆"
+          message={
+            scope === 'friends'
               ? 'Add friends and challenge them to duel!'
-              : 'Be the first to complete a duel!'}
-          </Text>
-        </Card>
+              : 'Be the first to complete a duel!'
+          }
+          actionText="Create Duel"
+          onAction={() => {}}
+        />
       ) : (
         <>
           {/* Top 3 Podium */}

@@ -6,10 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Card, Button } from '../components/ui';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { EmptyState } from '../components/EmptyState';
+import { ListItemSkeleton } from '../components/SkeletonLoader';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useDuelHistory } from '../hooks/useDuelHistory';
@@ -32,10 +36,17 @@ export default function DuelHistoryScreen() {
   const navigation = useNavigation<DuelHistoryNavProp>();
   const { history, stats, loading, loadHistory } = useDuelHistory(user?.id || '');
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadHistory();
   }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadHistory();
+    setRefreshing(false);
+  };
 
   const filteredHistory = history.filter(entry => {
     if (filter === 'won') return entry.outcome === 'won';
@@ -64,14 +75,19 @@ export default function DuelHistoryScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading history...</Text>
+        <LoadingSpinner text="Loading history..." />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+      }
+    >
       <Text style={styles.title}>Duel History ⚔️</Text>
 
       {/* Stats Summary */}
@@ -132,13 +148,16 @@ export default function DuelHistoryScreen() {
 
       {/* Duel List */}
       {filteredHistory.length === 0 ? (
-        <Card title="No duels yet" subtitle="Complete a duel to see your history">
-          <Text style={styles.emptyText}>
-            {filter !== 'all'
+        <EmptyState
+          emoji="⚔️"
+          message={
+            filter !== 'all'
               ? `No ${filter} duels found. Try a different filter.`
-              : 'Start a duel with a friend to get started!'}
-          </Text>
-        </Card>
+              : 'Start a duel with a friend to get started!'
+          }
+          actionText="Create Duel"
+          onAction={() => navigation.navigate('CreateDuel' as never)}
+        />
       ) : (
         filteredHistory.map(entry => (
           <DuelHistoryCard
