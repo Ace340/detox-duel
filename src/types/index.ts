@@ -15,6 +15,7 @@ export interface FocusSession {
   duration_minutes: number;
   blocked_apps: string[];
   status: 'active' | 'completed' | 'cancelled';
+  category?: string;
 }
 
 export interface Friendship {

@@ -11,6 +11,7 @@ import { useStreaks } from '../hooks/useStreaks';
 import { useNotifications } from '../hooks/useNotifications';
 import { StreakMilestoneCelebration } from '../components/StreakMilestoneCelebration';
 import { StreakLostNotification } from '../components/StreakLostNotification';
+import { getTopCategory, getCategoryIcon, getCategoryLabel } from '../constants/categories';
 import type { FocusSession } from '../types';
 import type { PendingChallenge } from '../hooks/usePendingChallenges';
 import type { Milestone } from '../types';
@@ -21,6 +22,8 @@ export default function HomeScreen({ navigation }: any) {
   const [todayTotal, setTodayTotal] = useState(0);
   const [recentSessions, setRecentSessions] = useState<FocusSession[]>([]);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
+  const [topCategory, setTopCategory] = useState<any>(null);
 
   // Streaks state
   const [showMilestone, setShowMilestone] = useState(false);
@@ -61,18 +64,31 @@ export default function HomeScreen({ navigation }: any) {
       if (sessionAlreadyCompleted) {
         await clearActiveSession();
         setHasActiveSession(false);
+        setActiveSession(null);
       } else {
         setHasActiveSession(true);
+        setActiveSession(active);
       }
     } else {
       if (active) await clearActiveSession();
       setHasActiveSession(false);
+      setActiveSession(null);
     }
 
     const total = await loadTodayTotal();
     setTodayTotal(total);
-    const recentSessions = completed.filter(s => s.status === 'completed').slice(-5).reverse();
+
+    // Get today's completed sessions for category stats
+    const todaySessions = completed.filter(
+      s => s.status === 'completed' && new Date(s.start_time).toDateString() === new Date().toDateString()
+    );
+
+    const recentSessions = todaySessions.slice(-5).reverse();
     setRecentSessions(recentSessions);
+
+    // Calculate top category for today
+    const topCat = getTopCategory(todaySessions);
+    setTopCategory(topCat);
 
     // Load pending challenges
     if (user?.id) {
@@ -235,29 +251,61 @@ export default function HomeScreen({ navigation }: any) {
         title={hasActiveSession ? 'Session Active' : 'Start Focus Session'}
         subtitle={hasActiveSession ? 'You are in focus mode' : 'Block distractions and get in the zone'}
       >
-        <Text style={styles.label}>Choose duration:</Text>
-        <View style={styles.presets}>
-          {FOCUS_PRESETS.map((preset) => (
+        {hasActiveSession && activeSession ? (
+          <>
+            <Text style={styles.stat}>⏱️ {activeSession.duration_minutes} min session in progress</Text>
+            {activeSession.category && (
+              <Text style={styles.stat}>
+                📌 {getCategoryIcon(activeSession.category)} {getCategoryLabel(activeSession.category)}
+              </Text>
+            )}
+            <Text style={styles.stat}>Started: {new Date(activeSession.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            <View style={styles.spacer} />
+            <Text style={styles.warningText}>⚠️ This session may be stuck. Cancel it to start a new one.</Text>
+            <View style={styles.spacer} />
             <Button
-              key={preset.minutes}
-              title={preset.label}
-              variant={selectedDuration === preset.minutes ? 'primary' : 'outline'}
-              onPress={() => setSelectedDuration(preset.minutes)}
+              title="Cancel Stuck Session"
+              variant="secondary"
+              onPress={async () => {
+                await clearActiveSession();
+                setHasActiveSession(false);
+                setActiveSession(null);
+                loadData();
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Choose duration:</Text>
+            <View style={styles.presets}>
+              {FOCUS_PRESETS.map((preset) => (
+                <Button
+                  key={preset.minutes}
+                  title={preset.label}
+                  variant={selectedDuration === preset.minutes ? 'primary' : 'outline'}
+                  onPress={() => setSelectedDuration(preset.minutes)}
+                  disabled={hasActiveSession}
+                />
+              ))}
+            </View>
+            <View style={styles.spacer} />
+            <Button
+              title={hasActiveSession ? 'Session Running' : 'Start Focusing'}
+              variant={hasActiveSession ? 'secondary' : 'primary'}
+              onPress={handleStartFocus}
               disabled={hasActiveSession}
             />
-          ))}
-        </View>
-        <View style={styles.spacer} />
-        <Button
-          title={hasActiveSession ? 'Session Running' : 'Start Focusing'}
-          variant={hasActiveSession ? 'secondary' : 'primary'}
-          onPress={handleStartFocus}
-          disabled={hasActiveSession}
-        />
+          </>
+        )}
       </Card>
 
       <Card title="Today's Progress" subtitle="Keep it up!">
         <Text style={styles.stat}>🔥 {todayTotal} min focused today</Text>
+        {topCategory && todayTotal > 0 && (
+          <Text style={styles.stat}>
+            {getCategoryIcon(topCategory.category)} Top category: {getCategoryLabel(topCategory.category)} ({topCategory.percentage}%)
+          </Text>
+        )}
         <Text style={styles.stat}>📅 {todayTotal > 0 ? 'Great work!' : 'Start your first session!'}</Text>
       </Card>
 
@@ -300,7 +348,8 @@ const styles = StyleSheet.create({
   presets: { gap: SPACING.sm },
   spacer: { height: SPACING.md },
   stat: { color: COLORS.text, fontSize: 16, marginBottom: SPACING.sm },
-  sessionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border || '#333' },
+  warningText: { color: COLORS.error, fontSize: 14, textAlign: 'center', marginBottom: SPACING.sm },
+  sessionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   sessionDuration: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
   sessionTime: { color: COLORS.textSecondary, fontSize: 13 },
   // Pending challenges styles

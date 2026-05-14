@@ -18,6 +18,7 @@ export async function saveCompletedSessionToSupabase(
       duration_minutes: session.duration_minutes,
       status: session.status,
       blocked_apps: session.blocked_apps,
+      category: session.category || null,
     }]);
 
     if (error) {

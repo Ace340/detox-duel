@@ -31,6 +31,7 @@ import CreateChallengeScreen from '../screens/CreateChallengeScreen';
 import ActiveChallengesScreen from '../screens/ActiveChallengesScreen';
 import ChallengeDetailScreen from '../screens/ChallengeDetailScreen';
 import ChallengeResultsScreen from '../screens/ChallengeResultsScreen';
+import CategoryStatsScreen from '../screens/CategoryStatsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -71,6 +72,7 @@ export type RootStackParamList = {
   ActiveChallengesScreen: { filter?: 'pending' | 'active' | 'completed' };
   ChallengeDetailScreen: { challengeId: string };
   ChallengeResultsScreen: { challengeId: string };
+  CategoryStats: undefined;
 };
 
 const tabs = [
@@ -229,6 +231,11 @@ export default function AppNavigator() {
             name="ChallengeResultsScreen"
             component={ChallengeResultsScreen as React.ComponentType<any>}
             options={{ title: 'Challenge Results' }}
+          />
+          <Stack.Screen
+            name="CategoryStats"
+            component={CategoryStatsScreen as React.ComponentType<any>}
+            options={{ title: 'Category Stats' }}
           />
         </Stack.Navigator>
       )}

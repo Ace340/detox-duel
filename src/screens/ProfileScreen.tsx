@@ -300,6 +300,19 @@ export default function ProfileScreen() {
         <WeeklyComparison thisWeek={thisWeekHours} lastWeek={lastWeekHours} />
       </Card>
 
+      {/* Category Stats */}
+      <Card
+        title="Category Stats"
+        subtitle="See how you spend your focus time"
+      >
+        <SettingItem
+          icon="📊"
+          label="View Category Breakdown"
+          onPress={() => navigation.navigate('CategoryStats' as never)}
+          rightElement={<Text style={styles.settingArrow}>→</Text>}
+        />
+      </Card>
+
       {/* Settings Section */}
       <Card title="Settings">
         <SettingItem
@@ -755,5 +768,10 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 11,
     marginTop: 4,
+  },
+  settingArrow: {
+    color: COLORS.primary,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
