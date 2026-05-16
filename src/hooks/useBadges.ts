@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import type { Badge, UserBadge, UserMetrics } from '../types';
 import { useBadgeMetrics } from './useBadgeMetrics';
+import { usePoints } from './usePoints';
 
 // =====================================================
 // TYPE DEFINITIONS
@@ -52,6 +53,9 @@ export function useBadges(userId: string | undefined): UseBadgesReturn {
   // Generate a unique identifier for this hook instance to avoid channel conflicts
   // This is necessary because useBadges is called from multiple components/screens
   const instanceId = useRef(Math.random().toString(36).substring(2, 9));
+
+  // Initialize points management
+  const { awardPoints } = usePoints(userId || '');
 
   /**
    * Fetch all badges from badges table
@@ -213,6 +217,12 @@ export function useBadges(userId: string | undefined): UseBadgesReturn {
             });
           }
         }
+
+        // Award points for earning a badge: 200 points
+        // This is a fire-and-forget operation - don't block on it
+        awardPoints(200, 'badge_earned').catch((error) => {
+          console.error('Failed to award points for badge earned:', error);
+        });
 
         // Update userBadges list
         await fetchUserBadges();

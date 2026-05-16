@@ -8,6 +8,7 @@ import {
 } from '../types/duel';
 import { useStreaks } from './useStreaks';
 import { useBadges } from './useBadges';
+import { usePoints } from './usePoints';
 
 /**
  * Configuration for creating a new duel
@@ -33,6 +34,9 @@ export function useDuel(userId: string = '') {
 
   // Initialize badge checking
   const { checkAllBadges } = useBadges(userId);
+
+  // Initialize points management
+  const { awardPoints } = usePoints(userId);
 
   /**
    * Creates a new duel with participants and notifications
@@ -216,6 +220,12 @@ export function useDuel(userId: string = '') {
 
       console.log(`Recording win for user ${userId} in duel ${duelId}`);
 
+      // Award points for winning a duel: 250 points
+      // This is a fire-and-forget operation - don't block on it
+      awardPoints(250, 'duel_win', duelId).catch((error) => {
+        console.error('Failed to award points for duel win:', error);
+      });
+
       // Update streaks after winning a duel
       // This is a fire-and-forget operation - don't block on it
       // If it fails, log error but don't break duel flow
@@ -236,7 +246,7 @@ export function useDuel(userId: string = '') {
       setError('Failed to record duel win');
       return false;
     }
-  }, [userId, updateStreaksHook]);
+  }, [userId, updateStreaksHook, awardPoints, checkAllBadges]);
 
   return {
     loading,

@@ -7,6 +7,7 @@ import { Text } from 'react-native';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { checkOnboardingStatus } from '../hooks/useOnboardingStorage';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import AuthScreen from '../screens/AuthScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -84,7 +85,28 @@ const tabs = [
   { name: 'Profile', component: ProfileScreen, icon: '👤' },
 ];
 
-function TabNavigator() {
+function renderLoadingState(): React.JSX.Element {
+  return (
+    <View style={styles.loading}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+}
+
+function createTabScreen(tab: typeof tabs[0]): React.JSX.Element {
+  return (
+    <Tab.Screen
+      key={tab.name}
+      name={tab.name}
+      component={tab.component}
+      options={{
+        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{tab.icon}</Text>,
+      }}
+    />
+  );
+}
+
+function TabNavigator(): React.JSX.Element {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -95,21 +117,71 @@ function TabNavigator() {
         headerTintColor: COLORS.text,
       }}
     >
-      {tabs.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={tab.component}
-          options={{
-            tabBarIcon: () => <Text style={{ fontSize: 20 }}>{tab.icon}</Text>,
-          }}
-        />
-      ))}
+      {tabs.map(createTabScreen)}
     </Tab.Navigator>
   );
 }
 
-export default function AppNavigator() {
+interface ScreenConfig {
+  name: string;
+  component: any;
+  options?: any;
+}
+
+const stackScreens: ScreenConfig[] = [
+  { name: 'Onboarding', component: OnboardingScreen as React.ComponentType<any>, options: { headerShown: false } },
+  { name: 'Tabs', component: TabNavigator, options: { headerShown: false } },
+  { name: 'FocusSession', component: FocusSessionScreen as React.ComponentType<any>, options: { title: 'Focus Session', headerShown: false } },
+  { name: 'CreateDuel', component: CreateDuelScreen as React.ComponentType<any>, options: { title: 'Create Duel' } },
+  { name: 'SelectFriend', component: SelectFriendScreen as React.ComponentType<any>, options: { title: 'Select Opponent' } },
+  { name: 'ConfigureDuel', component: ConfigureDuelScreen as React.ComponentType<any>, options: { title: 'Configure Duel' } },
+  { name: 'ReviewDuel', component: ReviewDuelScreen as React.ComponentType<any>, options: { title: 'Review Challenge' } },
+  { name: 'DuelChallenge', component: DuelChallengeScreen as React.ComponentType<any>, options: { title: 'Duel Challenge' } },
+  { name: 'DuelResults', component: DuelResultsScreen as React.ComponentType<any>, options: { title: 'Duel Results' } },
+  { name: 'DuelHistory', component: DuelHistoryScreen as React.ComponentType<any>, options: { title: 'Duel History' } },
+  { name: 'BragCard', component: BragCardScreen as React.ComponentType<any>, options: { title: 'Share Stats' } },
+  { name: 'ScreenTimeTest', component: ScreenTimeTestScreen as React.ComponentType<any>, options: { title: 'Screen Time Test' } },
+  { name: 'StreakCalendar', component: StreakCalendarScreen as React.ComponentType<any>, options: { title: 'Streak Calendar' } },
+  { name: 'Notifications', component: NotificationsScreen as React.ComponentType<any>, options: { title: 'Notifications', headerShown: false } },
+  { name: 'CreateChallengeScreen', component: CreateChallengeScreen as React.ComponentType<any>, options: { title: 'Create Challenge' } },
+  { name: 'ActiveChallengesScreen', component: ActiveChallengesScreen as React.ComponentType<any>, options: { title: 'My Challenges' } },
+  { name: 'ChallengeDetailScreen', component: ChallengeDetailScreen as React.ComponentType<any>, options: { title: 'Challenge Details' } },
+  { name: 'ChallengeResultsScreen', component: ChallengeResultsScreen as React.ComponentType<any>, options: { title: 'Challenge Results' } },
+  { name: 'CategoryStats', component: CategoryStatsScreen as React.ComponentType<any>, options: { title: 'Category Stats' } },
+];
+
+function createStackScreen(screen: ScreenConfig): React.JSX.Element {
+  return (
+    <Stack.Screen
+      key={screen.name}
+      name={screen.name as any}
+      component={screen.component}
+      options={screen.options}
+    />
+  );
+}
+
+function createCommonScreenOptions() {
+  return {
+    headerStyle: { backgroundColor: COLORS.background },
+    headerTintColor: COLORS.text,
+  };
+}
+
+function MainNavigator(hasCompletedOnboarding: boolean): React.JSX.Element {
+  const initialRouteName = hasCompletedOnboarding ? 'Tabs' : 'Onboarding';
+
+  return (
+    <Stack.Navigator
+      initialRouteName={initialRouteName as any}
+      screenOptions={createCommonScreenOptions()}
+    >
+      {stackScreens.map(createStackScreen)}
+    </Stack.Navigator>
+  );
+}
+
+function AppContent(): React.JSX.Element {
   const { session, loading } = useAuth();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -127,119 +199,23 @@ export default function AppNavigator() {
   }, [session]);
 
   if (loading || checkingOnboarding) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+    return renderLoadingState();
   }
 
+  if (!session) {
+    return <AuthScreen />;
+  }
+
+  return MainNavigator(hasCompletedOnboarding ?? false);
+}
+
+export default function AppNavigator(): React.JSX.Element {
   return (
-    <NavigationContainer>
-      {!session ? (
-        <AuthScreen />
-      ) : (
-        <Stack.Navigator
-          initialRouteName={hasCompletedOnboarding ? 'Tabs' : 'Onboarding'}
-          screenOptions={{
-            headerStyle: { backgroundColor: COLORS.background },
-            headerTintColor: COLORS.text,
-          }}
-        >
-          <Stack.Screen
-            name="Onboarding"
-            component={OnboardingScreen as React.ComponentType<any>}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="FocusSession"
-            component={FocusSessionScreen as React.ComponentType<any>}
-            options={{ title: 'Focus Session', headerShown: false }}
-          />
-          <Stack.Screen
-            name="CreateDuel"
-            component={CreateDuelScreen as React.ComponentType<any>}
-            options={{ title: 'Create Duel' }}
-          />
-          <Stack.Screen
-            name="SelectFriend"
-            component={SelectFriendScreen as React.ComponentType<any>}
-            options={{ title: 'Select Opponent' }}
-          />
-          <Stack.Screen
-            name="ConfigureDuel"
-            component={ConfigureDuelScreen as React.ComponentType<any>}
-            options={{ title: 'Configure Duel' }}
-          />
-          <Stack.Screen
-            name="ReviewDuel"
-            component={ReviewDuelScreen as React.ComponentType<any>}
-            options={{ title: 'Review Challenge' }}
-          />
-          <Stack.Screen
-            name="DuelChallenge"
-            component={DuelChallengeScreen as React.ComponentType<any>}
-            options={{ title: 'Duel Challenge' }}
-          />
-          <Stack.Screen
-            name="DuelResults"
-            component={DuelResultsScreen as React.ComponentType<any>}
-            options={{ title: 'Duel Results' }}
-          />
-          <Stack.Screen
-            name="DuelHistory"
-            component={DuelHistoryScreen as React.ComponentType<any>}
-            options={{ title: 'Duel History' }}
-          />
-          <Stack.Screen
-            name="BragCard"
-            component={BragCardScreen as React.ComponentType<any>}
-            options={{ title: 'Share Stats' }}
-          />
-          <Stack.Screen
-            name="ScreenTimeTest"
-            component={ScreenTimeTestScreen as React.ComponentType<any>}
-            options={{ title: 'Screen Time Test' }}
-          />
-          <Stack.Screen
-            name="StreakCalendar"
-            component={StreakCalendarScreen as React.ComponentType<any>}
-            options={{ title: 'Streak Calendar' }}
-          />
-          <Stack.Screen
-            name="Notifications"
-            component={NotificationsScreen as React.ComponentType<any>}
-            options={{ title: 'Notifications', headerShown: false }}
-          />
-          <Stack.Screen
-            name="CreateChallengeScreen"
-            component={CreateChallengeScreen as React.ComponentType<any>}
-            options={{ title: 'Create Challenge' }}
-          />
-          <Stack.Screen
-            name="ActiveChallengesScreen"
-            component={ActiveChallengesScreen as React.ComponentType<any>}
-            options={{ title: 'My Challenges' }}
-          />
-          <Stack.Screen
-            name="ChallengeDetailScreen"
-            component={ChallengeDetailScreen as React.ComponentType<any>}
-            options={{ title: 'Challenge Details' }}
-          />
-          <Stack.Screen
-            name="ChallengeResultsScreen"
-            component={ChallengeResultsScreen as React.ComponentType<any>}
-            options={{ title: 'Challenge Results' }}
-          />
-          <Stack.Screen
-            name="CategoryStats"
-            component={CategoryStatsScreen as React.ComponentType<any>}
-            options={{ title: 'Category Stats' }}
-          />
-        </Stack.Navigator>
-      )}
-    </NavigationContainer>
+    <ErrorBoundary>
+      <NavigationContainer>
+        <AppContent />
+      </NavigationContainer>
+    </ErrorBoundary>
   );
 }
 

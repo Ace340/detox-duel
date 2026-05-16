@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { NotificationBellIcon } from '../components/NotificationBellIcon';
+import { PointsPopup } from '../components/PointsPopup';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
 import { CardSkeleton, ListItemSkeleton } from '../components/SkeletonLoader';
@@ -12,6 +13,7 @@ import { usePendingChallenges } from '../hooks/usePendingChallenges';
 import { useRealtimeChallenges } from '../hooks/useRealtimeChallenges';
 import { useStreaks } from '../hooks/useStreaks';
 import { useNotifications } from '../hooks/useNotifications';
+import { usePoints } from '../hooks/usePoints';
 import { StreakMilestoneCelebration } from '../components/StreakMilestoneCelebration';
 import { StreakLostNotification } from '../components/StreakLostNotification';
 import { getTopCategory, getCategoryIcon, getCategoryLabel } from '../constants/categories';
@@ -36,6 +38,10 @@ export default function HomeScreen({ navigation }: any) {
   const [previousStreak, setPreviousStreak] = useState(0);
   const [currentMilestone, setCurrentMilestone] = useState<Milestone | null>(null);
 
+  // Points popup state
+  const [showPointsPopup, setShowPointsPopup] = useState(false);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
+
   // Initialize streaks tracking
   const { streaks, milestone: milestoneReached, fetchStreaks, checkStreakBroken } = useStreaks(user?.id || '');
 
@@ -44,6 +50,10 @@ export default function HomeScreen({ navigation }: any) {
 
   // Notifications hook
   const { unreadCount, loadNotifications } = useNotifications(user?.id || '');
+
+  // Points hook
+  const { getPointsToday } = usePoints(user?.id || '');
+  const [pointsToday, setPointsToday] = useState(0);
 
   // Realtime challenge subscription
   const handleNewChallenge = useCallback(() => {
@@ -100,6 +110,10 @@ export default function HomeScreen({ navigation }: any) {
     if (user?.id) {
       loadPendingChallenges();
       loadNotifications();
+
+      // Load points earned today
+      const points = await getPointsToday();
+      setPointsToday(points);
     }
 
     setLoading(false);
@@ -321,6 +335,7 @@ export default function HomeScreen({ navigation }: any) {
 
       <Card title="Today's Progress" subtitle="Keep it up!">
         <Text style={styles.stat}>🔥 {todayTotal} min focused today</Text>
+        <Text style={styles.stat}>🪙 {pointsToday} points earned today</Text>
         {topCategory && todayTotal > 0 && (
           <Text style={styles.stat}>
             {getCategoryIcon(topCategory.category)} Top category: {getCategoryLabel(topCategory.category)} ({topCategory.percentage}%)

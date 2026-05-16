@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { Card, Button } from '../components/ui';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
@@ -18,13 +18,25 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<FriendUser[]>([]);
   const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
   useEffect(() => { loadFriends(); }, [user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadFriends();
-    setRefreshing(false);
+    try {
+      await loadFriends();
+    } catch (error) {
+      console.error('Failed to refresh friends:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleScrollToSearch = () => {
+    scrollViewRef.current?.scrollTo({ y: 200, animated: true });
+    setTimeout(() => searchInputRef.current?.focus(), 300);
   };
 
   const handleSearch = async (text: string) => {
@@ -70,13 +82,19 @@ export default function FriendsScreen() {
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-      }
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={styles.title}>Friends 👥</Text>
 
       {/* Your username */}
@@ -87,12 +105,14 @@ export default function FriendsScreen() {
       {/* Search */}
       <Card title="Add Friend" subtitle="Search by username">
         <TextInput
+          ref={searchInputRef}
           style={styles.searchInput}
           placeholder="Search username..."
           placeholderTextColor={COLORS.textSecondary}
           value={searchQuery}
           onChangeText={handleSearch}
           autoCapitalize="none"
+          returnKeyType="search"
         />
         {searching && <Text style={styles.hint}>Searching...</Text>}
         {searchResults.map(result => (
@@ -144,9 +164,9 @@ export default function FriendsScreen() {
         ) : friends.length === 0 ? (
           <EmptyState
             emoji="👥"
-            message="No friends yet — search for usernames above to add friends!"
+            message="No friends yet"
             actionText="Add Friend"
-            onAction={() => {}}
+            onAction={handleScrollToSearch}
           />
         ) : (
           friends.map(friend => (
@@ -160,12 +180,14 @@ export default function FriendsScreen() {
         )}
       </Card>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: SPACING.lg },
+  scrollContainer: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: SPACING.lg, paddingBottom: 100 },
   title: { color: COLORS.text, fontSize: 28, fontWeight: 'bold', marginBottom: SPACING.lg },
   username: { color: COLORS.primary, fontSize: 18, fontWeight: '600' },
   searchInput: {

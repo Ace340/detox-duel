@@ -8,6 +8,7 @@ import {
   type Milestone,
 } from '../utils/streakCalculator';
 import type { UserStreaks } from '../types';
+import { usePoints } from './usePoints';
 
 // =====================================================
 // TYPE DEFINITIONS
@@ -48,6 +49,9 @@ export function useStreaks(userId: string): UseStreaksReturn {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [milestone, setMilestone] = useState<Milestone | null>(null);
+
+  // Initialize points management
+  const { awardPoints } = usePoints(userId);
 
   /**
    * Fetch user's current streak data from database
@@ -172,6 +176,13 @@ export function useStreaks(userId: string): UseStreaksReturn {
 
         if (milestoneReached) {
           setMilestone(milestoneReached);
+
+          // Award points for streak milestone: 50 points per milestone level
+          const milestoneLevel = Math.floor(milestoneReached.days / 3);
+          const points = milestoneLevel * 50;
+          awardPoints(points, 'streak_milestone').catch((error) => {
+            console.error('Failed to award points for streak milestone:', error);
+          });
         }
 
         // Update longest streak if needed

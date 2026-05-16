@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Card } from '../components/ui';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
@@ -7,18 +7,24 @@ import { ListItemSkeleton } from '../components/SkeletonLoader';
 import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useBadges } from '../hooks/useBadges';
+import { usePoints } from '../hooks/usePoints';
 import { fetchFriendsLeaderboard, fetchGlobalLeaderboard } from '../hooks/useDuelHistory';
+import { getRankTier } from '../types/points';
+import { supabase } from '../services/supabase';
 import type { LeaderboardRanking } from '../types/duel';
 
 type FilterScope = 'friends' | 'global';
+type RankingType = 'focus_time' | 'points';
 
 const RANK_EMOJIS = ['🥇', '🥈', '🥉'];
 
 export default function LeaderboardScreen() {
   const { user } = useAuth();
   const { checkAllBadges } = useBadges(user?.id);
+  const { userPoints } = usePoints(user?.id);
   const [rankings, setRankings] = useState<LeaderboardRanking[]>([]);
   const [scope, setScope] = useState<FilterScope>('friends');
+  const [rankingType, setRankingType] = useState<RankingType>('focus_time');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -26,9 +32,38 @@ export default function LeaderboardScreen() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const data = scope === 'friends'
-        ? await fetchFriendsLeaderboard(user.id)
-        : await fetchGlobalLeaderboard();
+      let data;
+
+      if (rankingType === 'points') {
+        // Fetch points-based rankings
+        const { data: pointsData, error } = await supabase
+          .from('user_points')
+          .select('user_id, total_points, users(username, avatar_url)')
+          .order('total_points', { ascending: false });
+
+        if (error) throw error;
+
+        // Transform to LeaderboardRanking format
+        data = (pointsData || []).map((item: any) => ({
+          user_id: item.user_id,
+          username: item.users?.username || 'Unknown',
+          avatar_url: item.users?.avatar_url,
+          totalWins: 0, // Points ranking doesn't have wins
+          totalLosses: 0,
+          totalDuels: 0,
+          winRate: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          badgesEarned: 0,
+          totalPoints: item.total_points,
+        }));
+      } else {
+        // Fetch focus time rankings (existing behavior)
+        data = scope === 'friends'
+          ? await fetchFriendsLeaderboard(user.id)
+          : await fetchGlobalLeaderboard();
+      }
+
       setRankings(data);
 
       // Check if user is in top 3, then check for badges
@@ -84,6 +119,26 @@ export default function LeaderboardScreen() {
         >
           <Text style={[styles.scopeTabText, scope === 'global' && styles.scopeTabTextActive]}>
             🌍 Global
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Ranking Type Toggle */}
+      <View style={styles.scopeRow}>
+        <TouchableOpacity
+          style={[styles.scopeTab, rankingType === 'focus_time' && styles.scopeTabActive]}
+          onPress={() => setRankingType('focus_time')}
+        >
+          <Text style={[styles.scopeTabText, rankingType === 'focus_time' && styles.scopeTabTextActive]}>
+            ⏱️ Focus Time
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.scopeTab, rankingType === 'points' && styles.scopeTabActive]}
+          onPress={() => setRankingType('points')}
+        >
+          <Text style={[styles.scopeTabText, rankingType === 'points' && styles.scopeTabTextActive]}>
+            🪙 Points
           </Text>
         </TouchableOpacity>
       </View>
@@ -159,6 +214,10 @@ export default function LeaderboardScreen() {
             const isMe = ranking.user_id === user?.id;
             const rankDisplay = index < 3 ? RANK_EMOJIS[index] : `#${index + 1}`;
 
+            // Get rank tier for points-based ranking
+            const userPoints = ranking.totalPoints || 0;
+            const rankTier = getRankTier(userPoints);
+
             return (
               <View key={ranking.user_id} style={[styles.rankRow, isMe && styles.myRow]}>
                 <View style={styles.rankLeft}>
@@ -169,11 +228,19 @@ export default function LeaderboardScreen() {
                     </Text>
                   </View>
                   <View style={styles.rankInfo}>
-                    <Text style={[styles.rankName, isMe && styles.myName]}>
-                      {ranking.username} {isMe ? '(You)' : ''}
-                    </Text>
+                    <View style={styles.rankInfoRow}>
+                      <Text style={[styles.rankName, isMe && styles.myName]}>
+                        {ranking.username} {isMe ? '(You)' : ''}
+                      </Text>
+                      {rankingType === 'points' && (
+                        <Text style={styles.rankTier}>{rankTier.emoji}</Text>
+                      )}
+                    </View>
                     <Text style={styles.rankSubtext}>
-                      {ranking.totalWins}W / {ranking.totalLosses}L · {ranking.winRate}% win rate
+                      {rankingType === 'points'
+                        ? `${userPoints.toLocaleString()} points`
+                        : `${ranking.totalWins}W / ${ranking.totalLosses}L · ${ranking.winRate}% win rate`
+                      }
                     </Text>
                   </View>
                 </View>
@@ -352,6 +419,11 @@ const styles = StyleSheet.create({
   rankInfo: {
     flex: 1,
   },
+  rankInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
   rankName: {
     color: COLORS.text,
     fontSize: 16,
@@ -359,6 +431,9 @@ const styles = StyleSheet.create({
   },
   myName: {
     color: COLORS.primary,
+  },
+  rankTier: {
+    fontSize: 14,
   },
   rankSubtext: {
     color: COLORS.textSecondary,

@@ -15,6 +15,7 @@ import {
 } from './useFocusSupabase';
 import { useStreaks } from './useStreaks';
 import { useBadges } from './useBadges';
+import { usePoints } from './usePoints';
 import { FocusSession, WeeklyScore } from '../types';
 
 interface UseFocusSessionReturn {
@@ -38,6 +39,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
 
   // Initialize badge checking
   const { checkAllBadges } = useBadges(userId);
+
+  // Initialize points management
+  const { awardPoints } = usePoints(userId);
 
   const { remainingSeconds, isRunning, startTimer, stopTimer, resetTimer } =
     useFocusTimer(0);
@@ -99,6 +103,13 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
 
       setTodayTotal(newTotal);
       setWeeklyTotals(totals);
+
+      // Award points for session completion: 10 points per minute
+      // This is a fire-and-forget operation - don't block on it
+      const pointsEarned = currentSession.duration_minutes * 10;
+      awardPoints(pointsEarned, 'session_complete', undefined, savedToSupabase?.id).catch((error) => {
+        console.error('Failed to award points:', error);
+      });
 
       // Update streaks after successful session completion
       // This is a fire-and-forget operation - don't block on it

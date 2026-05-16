@@ -153,10 +153,10 @@ export default function DuelHistoryScreen() {
           message={
             filter !== 'all'
               ? `No ${filter} duels found. Try a different filter.`
-              : 'Start a duel with a friend to get started!'
+              : 'No duel history yet'
           }
-          actionText="Create Duel"
-          onAction={() => navigation.navigate('CreateDuel' as never)}
+          actionText="View Active Duels"
+          onAction={() => navigation.navigate('MyDuels' as never)}
         />
       ) : (
         filteredHistory.map(entry => (
@@ -172,6 +172,28 @@ export default function DuelHistoryScreen() {
     </ScrollView>
   );
 }
+
+// =====================================================
+// UTILITY FUNCTIONS
+// =====================================================
+
+const getOutcomeEmoji = (outcome: string): string => {
+  if (outcome === 'won') return '✅';
+  if (outcome === 'lost') return '❌';
+  return '🤝';
+};
+
+const getOutcomeText = (outcome: string): string => {
+  if (outcome === 'won') return 'Victory';
+  if (outcome === 'lost') return 'Defeat';
+  return 'Draw';
+};
+
+const getOutcomeBadgeStyle = (outcome: string) => {
+  if (outcome === 'won') return styles.outcomeWon;
+  if (outcome === 'lost') return styles.outcomeLost;
+  return styles.outcomeDraw;
+};
 
 // =====================================================
 // DUEL HISTORY CARD COMPONENT
@@ -191,35 +213,21 @@ function DuelHistoryCard({ entry, onPress, formatDate, formatScreenTime }: DuelH
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View style={styles.historyCard}>
-        {/* Outcome Badge */}
-        <View style={[
-          styles.outcomeBadge,
-          outcome === 'won' && styles.outcomeWon,
-          outcome === 'lost' && styles.outcomeLost,
-          outcome === 'draw' && styles.outcomeDraw,
-        ]}>
-          <Text style={styles.outcomeEmoji}>
-            {outcome === 'won' ? '✅' : outcome === 'lost' ? '❌' : '🤝'}
-          </Text>
+        <View style={[styles.outcomeBadge, getOutcomeBadgeStyle(outcome)]}>
+          <Text style={styles.outcomeEmoji}>{getOutcomeEmoji(outcome)}</Text>
         </View>
 
-        {/* Main Info */}
         <View style={styles.historyInfo}>
           <View style={styles.historyTopRow}>
             <Text style={styles.historyOpponent}>vs @{opponentUsername}</Text>
-            <Text style={styles.historyOutcome}>
-              {outcome === 'won' ? 'Victory' : outcome === 'lost' ? 'Defeat' : 'Draw'}
-            </Text>
+            <Text style={styles.historyOutcome}>{getOutcomeText(outcome)}</Text>
           </View>
+
           <View style={styles.historyBottomRow}>
-            <Text style={styles.historyType}>
-              {emoji} {formatDuelType(duel.duel_type)}
-            </Text>
-            <Text style={styles.historyDate}>
-              {formatDate(duel.created_at)}
-            </Text>
+            <Text style={styles.historyType}>{emoji} {formatDuelType(duel.duel_type)}</Text>
+            <Text style={styles.historyDate}>{formatDate(duel.created_at)}</Text>
           </View>
-          {/* Quick Stats */}
+
           <View style={styles.historyStats}>
             <Text style={styles.historyStat}>
               📱 {formatScreenTime(entry.myScreenTimeSeconds)} vs {formatScreenTime(entry.opponentScreenTimeSeconds)}
@@ -232,7 +240,6 @@ function DuelHistoryCard({ entry, onPress, formatDate, formatScreenTime }: DuelH
           </View>
         </View>
 
-        {/* Chevron */}
         <Text style={styles.chevron}>›</Text>
       </View>
     </TouchableOpacity>

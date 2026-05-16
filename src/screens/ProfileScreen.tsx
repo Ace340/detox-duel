@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Card, Button } from '../components/ui';
@@ -18,6 +19,8 @@ import { useStreaks } from '../hooks/useStreaks';
 import { useDuelHistory } from '../hooks/useDuelHistory';
 import { useBadges } from '../hooks/useBadges';
 import { useNotifications } from '../hooks/useNotifications';
+import { usePoints } from '../hooks/usePoints';
+import { getRankTier } from '../types/points';
 import {
   requestNotificationPermission,
   savePushToken,
@@ -157,16 +160,23 @@ export default function ProfileScreen() {
   const { stats, loadHistory } = useDuelHistory(user?.id || '');
   const { userBadges, badges } = useBadges(user?.id);
   const { notifications, unreadCount, loadNotifications, markAllRead, preferences, loadPreferences, updatePreferences } = useNotifications(user?.id || '');
+  // Only call usePoints with a valid userId (empty strings cause UUID errors)
+  const validUserId = user?.id && user.id.trim() !== '' ? user.id : '';
+  const { userPoints, recentTransactions, currentTier, tierProgress, refreshPoints } = usePoints(validUserId);
 
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(2); // Default 2 hours
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
 
   useEffect(() => {
-    loadNotifications();
-    loadPreferences();
-    loadHistory();
-  }, [user?.id]);
+    // Only load data if user is authenticated
+    if (user?.id && user.id.trim() !== '') {
+      loadNotifications();
+      loadPreferences();
+      loadHistory();
+      refreshPoints();
+    }
+  }, [user?.id, loadNotifications, loadPreferences, loadHistory, refreshPoints]);
 
   useEffect(() => {
     if (preferences) {
@@ -233,6 +243,40 @@ export default function ProfileScreen() {
   const thisWeekHours = totalFocusHours;
   const lastWeekHours = totalFocusHours > 0 ? totalFocusHours - 1 : 0;
 
+  // Calculate points to next tier
+  const pointsToNextTier = currentTier
+    ? Math.max(0, currentTier.minPoints + (currentTier.maxPoints - currentTier.minPoints) - userPoints?.total_points || 0)
+    : 0;
+
+  // Get transaction icon based on reason
+  const getTransactionIcon = (reason: string): string => {
+    const icons: Record<string, string> = {
+      session_complete: '⏱️',
+      duel_win: '🏆',
+      duel_complete: '⚔️',
+      streak_milestone: '🔥',
+      badge_earned: '🏅',
+      leaderboard_bonus: '🎯',
+    };
+    return icons[reason] || '🪙';
+  };
+
+  // Format relative time
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Top User Section */}
@@ -251,6 +295,58 @@ export default function ProfileScreen() {
           <StatItem icon="🔥" label="Current" value={streaks?.current_streak || 0} />
           <StatItem icon="⭐" label="Best" value={streaks?.longest_streak || 0} />
         </View>
+      </Card>
+
+      {/* Points Section */}
+      <Card title="Points & Rank" subtitle="Your gamification progress">
+        <View style={styles.pointsContainer}>
+          <Text style={styles.pointsDisplay}>
+            {userPoints?.total_points || 0} <Text style={styles.pointsEmoji}>🪙</Text>
+          </Text>
+          <View style={styles.rankContainer}>
+            <Text style={styles.rankEmoji}>{currentTier?.emoji || '🥉'}</Text>
+            <View>
+              <Text style={styles.rankName}>{currentTier?.name || 'Bronze'}</Text>
+              <Text style={styles.rankLabel}>
+                {pointsToNextTier > 0
+                  ? `${pointsToNextTier} to ${getRankTier((currentTier?.maxPoints || 0) + 1)?.name || 'Next'}`
+                  : 'Max tier reached!'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { width: `${tierProgress}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{tierProgress}% to next tier</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Points History */}
+      <Card title="Points History" subtitle="Recent transactions">
+        {recentTransactions.length === 0 ? (
+          <Text style={styles.noTransactionsText}>No transactions yet</Text>
+        ) : (
+          recentTransactions.map((transaction) => (
+            <View key={transaction.id} style={styles.transactionRow}>
+              <View style={styles.transactionLeft}>
+                <Text style={styles.transactionIcon}>
+                  {getTransactionIcon(transaction.reason)}
+                </Text>
+                <View style={styles.transactionInfo}>
+                  <Text style={styles.transactionReason}>
+                    {transaction.reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </Text>
+                  <Text style={styles.transactionTime}>
+                    {formatRelativeTime(transaction.created_at)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.transactionAmount}>+{transaction.amount}</Text>
+            </View>
+          ))
+        )}
       </Card>
 
       {/* Duel Record */}
@@ -524,6 +620,108 @@ const styles = StyleSheet.create({
   statLabel: {
     color: COLORS.textSecondary,
     fontSize: 12,
+  },
+
+  // Points Section
+  pointsContainer: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+  },
+  pointsDisplay: {
+    color: COLORS.text,
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginBottom: SPACING.md,
+  },
+  pointsEmoji: {
+    fontSize: 36,
+  },
+  rankContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    width: '100%',
+  },
+  rankEmoji: {
+    fontSize: 32,
+    marginRight: SPACING.md,
+  },
+  rankName: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  rankLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  progressContainer: {
+    width: '100%',
+    marginTop: SPACING.sm,
+  },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: SPACING.xs,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+  },
+  progressText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+  },
+
+  // Points History
+  transactionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  transactionIcon: {
+    fontSize: 20,
+    marginRight: SPACING.md,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionReason: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  transactionTime: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  transactionAmount: {
+    color: COLORS.success,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  noTransactionsText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: SPACING.lg,
   },
 
   // Duel Record
