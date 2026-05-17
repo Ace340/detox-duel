@@ -46,13 +46,10 @@ export function BadgeCelebration({
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Auto-dismiss timer
   useEffect(() => {
     if (visible) {
-      // Start animations
       startAnimations();
 
-      // Auto-dismiss after 3 seconds
       const timer = setTimeout(() => {
         dismiss();
       }, 3000);
@@ -62,11 +59,9 @@ export function BadgeCelebration({
   }, [visible]);
 
   const startAnimations = () => {
-    // Reset values
     scaleAnim.setValue(0);
     opacityAnim.setValue(0);
 
-    // Fade in and scale up with spring animation
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -122,25 +117,21 @@ export function BadgeCelebration({
         >
           <TouchableOpacity activeOpacity={1} style={styles.contentContainer}>
             <Animated.View
-              style={[
-                styles.celebrationCard,
-                {
-                  transform: [{ scale: scaleAnim }],
-                },
-              ]}
-            >
-              {/* Large animated emoji */}
-              <Text style={styles.emoji}>{badge.emoji}</Text>
+               style={[
+                 styles.celebrationCard,
+                 {
+                   transform: [{ scale: scaleAnim }],
+                 },
+               ]}
+             >
+               <Text style={styles.emoji}>{badge.emoji}</Text>
 
-              {/* Congratulations heading */}
-              <Text style={styles.heading}>Congratulations!</Text>
+               <Text style={styles.heading}>Congratulations!</Text>
 
-              {/* Badge name */}
-              <Text style={styles.badgeName}>{badge.name}</Text>
+               <Text style={styles.badgeName}>{badge.name}</Text>
 
-              {/* Badge description */}
-              <Text style={styles.badgeDescription}>{badge.description}</Text>
-            </Animated.View>
+               <Text style={styles.badgeDescription}>{badge.description}</Text>
+             </Animated.View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Animated.View>

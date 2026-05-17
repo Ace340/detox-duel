@@ -61,13 +61,10 @@ export function StreakMilestoneCelebration({
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Auto-dismiss timer
   useEffect(() => {
     if (visible) {
-      // Start animations
       startAnimations();
 
-      // Auto-dismiss after 3 seconds
       const timer = setTimeout(() => {
         dismiss();
       }, 3000);
@@ -77,14 +74,11 @@ export function StreakMilestoneCelebration({
   }, [visible]);
 
   const startAnimations = () => {
-    // Reset values
     scaleAnim.setValue(0);
     opacityAnim.setValue(0);
     rotateAnim.setValue(0);
 
-    // Sequence animations
     Animated.sequence([
-      // Fade in and scale up
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 1,
@@ -98,7 +92,6 @@ export function StreakMilestoneCelebration({
           useNativeDriver: true,
         }),
       ]),
-      // Rotate emoji
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 600,
@@ -160,33 +153,29 @@ export function StreakMilestoneCelebration({
                 {
                   transform: [{ scale: scaleAnim }],
                 },
-              ]}
-            >
-              {/* Emoji with rotation animation */}
-              <Animated.View
-                style={[
-                  styles.emojiContainer,
-                  {
-                    transform: [{ rotate: rotateInterpolate }],
-                  },
-                ]}
-              >
-                <Text style={styles.emoji}>{displayEmoji}</Text>
-              </Animated.View>
+               ]}
+             >
+               <Animated.View
+                 style={[
+                   styles.emojiContainer,
+                   {
+                     transform: [{ rotate: rotateInterpolate }],
+                   },
+                 ]}
+               >
+                 <Text style={styles.emoji}>{displayEmoji}</Text>
+               </Animated.View>
 
-              {/* Milestone label */}
-              <Text style={styles.label}>{label}</Text>
+               <Text style={styles.label}>{label}</Text>
 
-              {/* Subtitle */}
-              <Text style={styles.subtitle}>
-                Amazing work! Keep it going!
-              </Text>
+               <Text style={styles.subtitle}>
+                 Amazing work! Keep it going!
+               </Text>
 
-              {/* Dismiss hint */}
-              <TouchableOpacity onPress={dismiss} style={styles.dismissButton}>
-                <Text style={styles.dismissText}>Tap to dismiss</Text>
-              </TouchableOpacity>
-            </Animated.View>
+               <TouchableOpacity onPress={dismiss} style={styles.dismissButton}>
+                 <Text style={styles.dismissText}>Tap to dismiss</Text>
+               </TouchableOpacity>
+             </Animated.View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Animated.View>

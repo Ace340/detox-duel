@@ -53,8 +53,6 @@ const PointsPopup: React.FC<PointsPopupProps> = ({
     }
   }, [visible]);
 
-  if (!show) return null;
-
   const position = x !== undefined && y !== undefined ? { left: x, top: y } : {};
 
   return (
@@ -68,7 +66,6 @@ const PointsPopup: React.FC<PointsPopupProps> = ({
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',

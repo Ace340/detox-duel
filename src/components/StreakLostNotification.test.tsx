@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import StreakLostNotification from './StreakLostNotification';
+import { StreakLostNotification } from './StreakLostNotification';
 
 describe('StreakLostNotification', () => {
   const mockOnStartNewStreak = jest.fn();

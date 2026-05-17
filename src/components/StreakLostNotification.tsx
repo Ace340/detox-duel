@@ -55,41 +55,37 @@ export function StreakLostNotification({
       subtitle={`Your ${previousStreak}-day streak was lost`}
       style={styles.card}
     >
-      <View style={styles.content}>
-        {/* Encouraging message */}
-        <Text style={styles.message}>
-          Don't worry, streaks happen! {'\n'}
-          You can start a new one today.
-        </Text>
+        <View style={styles.content}>
+          <Text style={styles.message}>
+            Don't worry, streaks happen! {'\n'}
+            You can start a new one today.
+          </Text>
 
-        {/* Previous streak highlight */}
-        <View style={styles.streakHighlight}>
-          <Text style={styles.streakEmoji}>🔥</Text>
-          <Text style={styles.streakCount}>{previousStreak} days</Text>
+          <View style={styles.streakHighlight}>
+            <Text style={styles.streakEmoji}>🔥</Text>
+            <Text style={styles.streakCount}>{previousStreak} days</Text>
+          </View>
+
+          <Text style={styles.tip}>
+            💡 Tip: Complete a focus session or win a duel to start your new streak!
+          </Text>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.primaryButton]}
+              onPress={handleStartNewStreak}
+            >
+              <Text style={styles.primaryButtonText}>Start New Streak</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={handleDismiss}
+            >
+              <Text style={styles.secondaryButtonText}>Maybe Later</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Encouraging tips */}
-        <Text style={styles.tip}>
-          💡 Tip: Complete a focus session or win a duel to start your new streak!
-        </Text>
-
-        {/* Action buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
-            onPress={handleStartNewStreak}
-          >
-            <Text style={styles.primaryButtonText}>Start New Streak</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
-            onPress={handleDismiss}
-          >
-            <Text style={styles.secondaryButtonText}>Maybe Later</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
     </Card>
   );
 }

@@ -1,16 +1,9 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import StreakMilestoneCelebration from './StreakMilestoneCelebration';
-import { Milestone } from '@/types';
+import { StreakMilestoneCelebration } from './StreakMilestoneCelebration';
 
 describe('StreakMilestoneCelebration', () => {
-  const mockMilestone: Milestone = {
-    days: 7,
-    emoji: '⚡',
-    label: 'Week Warrior',
-  };
-
-  const mockOnClose = jest.fn();
+  const mockOnDismiss = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -25,8 +18,9 @@ describe('StreakMilestoneCelebration', () => {
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -37,20 +31,22 @@ describe('StreakMilestoneCelebration', () => {
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
-    expect(getByText('Week Warrior')).toBeTruthy();
+    expect(getByText('Week Warrior!')).toBeTruthy();
   });
 
   test('renders milestone number', () => {
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -61,8 +57,9 @@ describe('StreakMilestoneCelebration', () => {
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -70,62 +67,47 @@ describe('StreakMilestoneCelebration', () => {
   });
 
   test('renders 3-day milestone', () => {
-    const threeDayMilestone: Milestone = {
-      days: 3,
-      emoji: '🔥',
-      label: '3-Day Streak',
-    };
-
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={threeDayMilestone}
-        onClose={mockOnClose}
+        milestone={3}
+        emoji="🔥"
+        onDismiss={mockOnDismiss}
       />
     );
 
     expect(getByText('🔥')).toBeTruthy();
-    expect(getByText('3-Day Streak')).toBeTruthy();
+    expect(getByText('3-Day Streak!')).toBeTruthy();
     expect(getByText('3')).toBeTruthy();
   });
 
   test('renders 14-day milestone', () => {
-    const fourteenDayMilestone: Milestone = {
-      days: 14,
-      emoji: '💎',
-      label: '2-Week Champion',
-    };
-
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={fourteenDayMilestone}
-        onClose={mockOnClose}
+        milestone={14}
+        emoji="💎"
+        onDismiss={mockOnDismiss}
       />
     );
 
     expect(getByText('💎')).toBeTruthy();
-    expect(getByText('2-Week Champion')).toBeTruthy();
+    expect(getByText('2-Week Champion!')).toBeTruthy();
     expect(getByText('14')).toBeTruthy();
   });
 
   test('renders 30-day milestone', () => {
-    const thirtyDayMilestone: Milestone = {
-      days: 30,
-      emoji: '👑',
-      label: '30-Day Legend',
-    };
-
     const { getByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={thirtyDayMilestone}
-        onClose={mockOnClose}
+        milestone={30}
+        emoji="👑"
+        onDismiss={mockOnDismiss}
       />
     );
 
     expect(getByText('👑')).toBeTruthy();
-    expect(getByText('30-Day Legend')).toBeTruthy();
+    expect(getByText('30-Day Legend!')).toBeTruthy();
     expect(getByText('30')).toBeTruthy();
   });
 
@@ -133,36 +115,39 @@ describe('StreakMilestoneCelebration', () => {
     const { getByTestId } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
     fireEvent.press(getByTestId('celebration-overlay'));
 
-    expect(mockOnClose).toHaveBeenCalledTimes(1);
+    expect(mockOnDismiss).toHaveBeenCalledTimes(1);
   });
 
   test('calls onClose when content is pressed', () => {
     const { getByTestId } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
     fireEvent.press(getByTestId('celebration-content'));
 
-    expect(mockOnClose).toHaveBeenCalledTimes(1);
+    expect(mockOnDismiss).toHaveBeenCalledTimes(1);
   });
 
   test('auto-dismisses after 3 seconds', async () => {
     render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -170,7 +155,7 @@ describe('StreakMilestoneCelebration', () => {
     jest.advanceTimersByTime(3000);
 
     await waitFor(() => {
-      expect(mockOnClose).toHaveBeenCalledTimes(1);
+      expect(mockOnDismiss).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -178,27 +163,29 @@ describe('StreakMilestoneCelebration', () => {
     render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
     // Fast-forward 2 seconds
     jest.advanceTimersByTime(2000);
 
-    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(mockOnDismiss).not.toHaveBeenCalled();
   });
 
   test('does not render when visible is false', () => {
     const { queryByText } = render(
       <StreakMilestoneCelebration
         visible={false}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
-    expect(queryByText('Week Warrior')).toBeNull();
+    expect(queryByText('Week Warrior!')).toBeNull();
     expect(queryByText('⚡')).toBeNull();
   });
 
@@ -206,8 +193,9 @@ describe('StreakMilestoneCelebration', () => {
     const { getByTestId } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -222,25 +210,27 @@ describe('StreakMilestoneCelebration', () => {
     const { unmount } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
     unmount();
 
-    // Fast-forward time - should not call onClose because component unmounted
+    // Fast-forward time - should not call onDismiss because component unmounted
     jest.advanceTimersByTime(3000);
 
-    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(mockOnDismiss).not.toHaveBeenCalled();
   });
 
   test('handles multiple taps without multiple callbacks', () => {
     const { getByTestId } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
@@ -249,35 +239,31 @@ describe('StreakMilestoneCelebration', () => {
     fireEvent.press(getByTestId('celebration-overlay'));
     fireEvent.press(getByTestId('celebration-overlay'));
 
-    expect(mockOnClose).toHaveBeenCalledTimes(1);
+    expect(mockOnDismiss).toHaveBeenCalledTimes(1);
   });
 
   test('updates when milestone changes', () => {
     const { rerender, getByText, queryByText } = render(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={mockMilestone}
-        onClose={mockOnClose}
+        milestone={7}
+        emoji="⚡"
+        onDismiss={mockOnDismiss}
       />
     );
 
-    expect(getByText('Week Warrior')).toBeTruthy();
-
-    const newMilestone: Milestone = {
-      days: 14,
-      emoji: '💎',
-      label: '2-Week Champion',
-    };
+    expect(getByText('Week Warrior!')).toBeTruthy();
 
     rerender(
       <StreakMilestoneCelebration
         visible={true}
-        milestone={newMilestone}
-        onClose={mockOnClose}
+        milestone={14}
+        emoji="💎"
+        onDismiss={mockOnDismiss}
       />
     );
 
-    expect(queryByText('Week Warrior')).toBeNull();
-    expect(getByText('2-Week Champion')).toBeTruthy();
+    expect(queryByText('Week Warrior!')).toBeNull();
+    expect(getByText('2-Week Champion!')).toBeTruthy();
   });
 });
