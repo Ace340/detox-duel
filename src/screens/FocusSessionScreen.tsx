@@ -134,10 +134,14 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   if (phase === 'setup') {
     return (
       <View style={styles.container}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.setupContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.setupContent}
+        >
           <Card
             title="Start Focus Session"
             subtitle={`Duration: ${duration} minutes`}
+            style={styles.card}
           >
             <Text style={styles.setupTitle}>What are you focusing on?</Text>
             <CategoryPicker
@@ -189,14 +193,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
   },
   scrollView: {
     flex: 1,
+    width: '100%',
   },
   card: {
-    margin: SPACING.lg,
+    width: '100%',
+    maxWidth: 400,
   },
   setupContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: SPACING.lg,
   },
   setupTitle: {
