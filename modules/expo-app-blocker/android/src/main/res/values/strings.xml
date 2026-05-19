@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Accessibility Service Description -->
+  <string name="accessibility_service_description">
+    Detox Duel uses this service to detect when you open banned apps during a duel and shows a blocking screen to help you stay focused.
+  </string>
+</resources>

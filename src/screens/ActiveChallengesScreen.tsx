@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +23,7 @@ import {
   type GroupChallengeWithParticipants,
 } from '../types/groupChallenge';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { AppBlocker } from '../services/appBlocker';
 
 type ActiveChallengesNavProp = NativeStackNavigationProp<RootStackParamList, 'ActiveChallengesScreen'>;
 
@@ -180,11 +183,103 @@ export default function ActiveChallengesScreen() {
   const [filter, setFilter] = useState<ChallengeStatus | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
+  // App blocking state
+  const [hasCheckedPermissions, setHasCheckedPermissions] = useState(false);
+  const [blockingActive, setBlockingActive] = useState(false);
+
   useEffect(() => {
     if (user?.id) {
       loadActiveChallenges();
     }
   }, [user?.id]);
+
+  // Check permissions on mount and handle app blocking for active challenges
+  useEffect(() => {
+    checkPermissionsAndHandleBlocking();
+  }, [challenges]);
+
+  // Cleanup blocking on unmount
+  useEffect(() => {
+    return () => {
+      stopAllBlocking();
+    };
+  }, []);
+
+  const checkPermissionsAndHandleBlocking = async () => {
+    if (Platform.OS !== 'android' || !user?.id) {
+      return;
+    }
+
+    try {
+      // Check if app blocker is supported
+      if (!AppBlocker.isSupported()) {
+        return;
+      }
+
+      // Get active challenges (those with status 'active')
+      const activeChallenges = challenges.filter(c => c.status === 'active');
+
+      if (activeChallenges.length === 0) {
+        // No active challenges, stop blocking
+        await stopAllBlocking();
+        return;
+      }
+
+      // Check permissions if we haven't yet
+      if (!hasCheckedPermissions) {
+        const hasPermission = await AppBlocker.hasPermission();
+        if (!hasPermission) {
+          // Navigate to AccessibilityGuideScreen
+          navigation.navigate('AccessibilityGuideScreen' as any);
+          setHasCheckedPermissions(true);
+          return;
+        }
+        setHasCheckedPermissions(true);
+      }
+
+      // For each active challenge, check if it has banned_apps (future-proofing)
+      for (const challenge of activeChallenges) {
+        // Note: Group challenges don't currently have banned_apps field
+        // This is future-proofed for when that feature is added
+        const bannedApps = (challenge as any).banned_apps;
+        if (bannedApps && bannedApps.length > 0) {
+          try {
+            await AppBlocker.startBlocking(bannedApps, challenge.id);
+            setBlockingActive(true);
+          } catch (error) {
+            console.error(`Failed to start blocking for challenge ${challenge.id}:`, error);
+            Alert.alert(
+              'Blocking Error',
+              'Failed to enable app blocking for this challenge. Please try again.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkPermissionsAndHandleBlocking:', error);
+    }
+  };
+
+  const stopAllBlocking = async () => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    try {
+      if (!AppBlocker.isSupported()) {
+        return;
+      }
+
+      const isActive = await AppBlocker.isBlockingActive();
+      if (isActive) {
+        await AppBlocker.stopBlocking();
+        setBlockingActive(false);
+      }
+    } catch (error) {
+      console.error('Error stopping blocking:', error);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -285,6 +380,11 @@ export default function ActiveChallengesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Group Challenges 🏆</Text>
+        {blockingActive && (
+          <View style={styles.blockingIndicator}>
+            <Text style={styles.blockingIndicatorText}>🛡️ Blocking Active</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.filterContainer}>
@@ -333,6 +433,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
     paddingBottom: SPACING.md,
+  },
+  blockingIndicator: {
+    backgroundColor: `${COLORS.primary}20`,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: 8,
+    marginTop: SPACING.sm,
+    alignSelf: 'flex-start',
+  },
+  blockingIndicatorText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   title: {
     color: COLORS.text,

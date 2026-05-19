@@ -33,6 +33,7 @@ import ActiveChallengesScreen from '../screens/ActiveChallengesScreen';
 import ChallengeDetailScreen from '../screens/ChallengeDetailScreen';
 import ChallengeResultsScreen from '../screens/ChallengeResultsScreen';
 import CategoryStatsScreen from '../screens/CategoryStatsScreen';
+import AccessibilityGuideScreen from '../screens/AccessibilityGuideScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -74,6 +75,7 @@ export type RootStackParamList = {
   ChallengeDetailScreen: { challengeId: string };
   ChallengeResultsScreen: { challengeId: string };
   CategoryStats: undefined;
+  AccessibilityGuideScreen: undefined;
 };
 
 const tabs = [
@@ -148,6 +150,7 @@ const stackScreens: ScreenConfig[] = [
   { name: 'ChallengeDetailScreen', component: ChallengeDetailScreen as React.ComponentType<any>, options: { title: 'Challenge Details' } },
   { name: 'ChallengeResultsScreen', component: ChallengeResultsScreen as React.ComponentType<any>, options: { title: 'Challenge Results' } },
   { name: 'CategoryStats', component: CategoryStatsScreen as React.ComponentType<any>, options: { title: 'Category Stats' } },
+  { name: 'AccessibilityGuideScreen', component: AccessibilityGuideScreen as React.ComponentType<any>, options: { title: 'Accessibility Setup', headerShown: false } },
 ];
 
 function createStackScreen(screen: ScreenConfig): React.JSX.Element {

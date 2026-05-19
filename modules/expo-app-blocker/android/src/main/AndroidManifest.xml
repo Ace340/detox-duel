@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+  <application>
+    <!-- Accessibility Service for detecting banned apps -->
+    <service
+      android:name="expo.modules.appblocker.AppBlockerAccessibilityService"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/app_blocker_service_config" />
+    </service>
+
+    <!-- Blocking Overlay Activity -->
+    <activity
+      android:name="expo.modules.appblocker.BlockOverlayActivity"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar"
+      android:exported="true"
+      android:excludeFromRecents="true"
+      android:taskAffinity=""
+      android:noHistory="true"
+      android:launchMode="singleTask" />
+  </application>
+</manifest>
