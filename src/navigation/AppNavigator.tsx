@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
+import { useDuelBlocking } from '../hooks/useDuelBlocking';
 import { checkOnboardingStatus } from '../hooks/useOnboardingStorage';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import AuthScreen from '../screens/AuthScreen';
@@ -188,6 +189,12 @@ function AppContent(): React.JSX.Element {
   const { session, loading } = useAuth();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  // Subscribe to duel status changes — auto block/unblock apps based on active duels
+  useDuelBlocking({
+    userId: session?.user?.id ?? '',
+    enabled: !!session,
+  });
 
   useEffect(() => {
     const checkOnboarding = async () => {

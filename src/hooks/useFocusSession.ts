@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useFocusTimer } from './useFocusTimer';
 import {
   saveActiveSession,
@@ -16,6 +17,7 @@ import {
 import { useStreaks } from './useStreaks';
 import { useBadges } from './useBadges';
 import { usePoints } from './usePoints';
+import { AppBlocker } from '../services/appBlocker';
 import { FocusSession, WeeklyScore } from '../types';
 
 interface UseFocusSessionReturn {
@@ -46,6 +48,36 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
   const { remainingSeconds, isRunning, startTimer, stopTimer, resetTimer } =
     useFocusTimer(0);
 
+  /**
+   * Start app blocking for the given package names.
+   * Silently fails on non-Android or when the native module is unavailable.
+   */
+  const startAppBlocking = useCallback(async (packageNames: string[], sessionId: string) => {
+    if (Platform.OS !== 'android' || packageNames.length === 0) return;
+
+    try {
+      const hasPermission = await AppBlocker.hasPermission();
+      if (hasPermission) {
+        await AppBlocker.startBlocking(packageNames, sessionId);
+      }
+    } catch (error) {
+      console.error('[useFocusSession] Failed to start app blocking:', error);
+    }
+  }, []);
+
+  /**
+   * Stop app blocking. Safe to call even when blocking is not active.
+   */
+  const stopAppBlocking = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
+
+    try {
+      await AppBlocker.stopBlocking();
+    } catch (error) {
+      console.error('[useFocusSession] Failed to stop app blocking:', error);
+    }
+  }, []);
+
   const startSession = useCallback(
     async (durationMinutes: number, blockedApps: string[]) => {
       const now = new Date().toISOString();
@@ -63,9 +95,12 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
         setCurrentSession(session);
         resetTimer();
         startTimer();
+
+        // Start app blocking for the selected apps
+        await startAppBlocking(blockedApps, session.id);
       }
     },
-    [userId, resetTimer, startTimer]
+    [userId, resetTimer, startTimer, startAppBlocking],
   );
 
   const completeSession = useCallback(async () => {
@@ -95,6 +130,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
       setCurrentSession(null);
       resetTimer();
 
+      // Stop app blocking — session is complete
+      await stopAppBlocking();
+
       // Fetch updated totals in parallel.
       const [newTotal, totals] = await Promise.all([
         loadTodayTotal(),
@@ -107,7 +145,7 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
       // Award points for session completion: 10 points per minute
       // This is a fire-and-forget operation - don't block on it
       const pointsEarned = currentSession.duration_minutes * 10;
-      awardPoints(pointsEarned, 'session_complete', undefined, savedToSupabase?.id).catch((error) => {
+      awardPoints(pointsEarned, 'session_complete', undefined, completedSession.id).catch((error) => {
         console.error('Failed to award points:', error);
       });
 
@@ -130,7 +168,7 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
     }
 
     setIsLoading(false);
-  }, [currentSession, stopTimer, resetTimer, userId]);
+  }, [currentSession, stopTimer, resetTimer, userId, stopAppBlocking, awardPoints, updateStreaksHook, checkAllBadges]);
 
   const cancelSession = useCallback(async () => {
     if (!currentSession) return;
@@ -147,7 +185,10 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
     await clearActiveSession();
     setCurrentSession(null);
     resetTimer();
-  }, [currentSession, stopTimer, resetTimer]);
+
+    // Stop app blocking — session is cancelled
+    await stopAppBlocking();
+  }, [currentSession, stopTimer, resetTimer, stopAppBlocking]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -161,11 +202,16 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
       if (session && session.status === 'active') {
         setCurrentSession(session);
         startTimer();
+
+        // Restore blocking for the active session's banned apps
+        if (session.blocked_apps && session.blocked_apps.length > 0) {
+          await startAppBlocking(session.blocked_apps, session.id);
+        }
       }
     }
 
     loadInitialData();
-  }, [userId, startTimer]);
+  }, [userId, startTimer, startAppBlocking]);
 
   return {
     currentSession,

@@ -2,7 +2,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
-const localModulePath = path.resolve(projectRoot, '../expo-screen-time');
+const localModulePath = path.resolve(projectRoot, './expo-screen-time');
 
 const config = getDefaultConfig(projectRoot);
 

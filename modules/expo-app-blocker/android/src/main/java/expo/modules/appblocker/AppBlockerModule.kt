@@ -61,16 +61,12 @@ class ExpoAppBlockerModule : Module() {
       try {
         // Validate input
         if (packageNames.isEmpty()) {
-          promise.reject(
-            CodedException("INVALID_INPUT", "Blocked package names list cannot be empty")
-          )
+          promise.reject("INVALID_INPUT", "Blocked package names list cannot be empty", null)
           return@AsyncFunction
         }
 
         if (duelId.isBlank()) {
-          promise.reject(
-            CodedException("INVALID_INPUT", "Duel ID cannot be empty")
-          )
+          promise.reject("INVALID_INPUT", "Duel ID cannot be empty", null)
           return@AsyncFunction
         }
 
@@ -92,10 +88,7 @@ class ExpoAppBlockerModule : Module() {
 
         promise.resolve(null)
       } catch (e: Exception) {
-        promise.reject(
-          CodedException("BLOCKING_ERROR", "Failed to start blocking: ${e.message}")
-            .apply { initCause(e) }
-        )
+        promise.reject("BLOCKING_ERROR", "Failed to start blocking: ${e.message}", e)
       }
     }
 
@@ -122,10 +115,7 @@ class ExpoAppBlockerModule : Module() {
 
         promise.resolve(null)
       } catch (e: Exception) {
-        promise.reject(
-          CodedException("BLOCKING_ERROR", "Failed to stop blocking: ${e.message}")
-            .apply { initCause(e) }
-        )
+        promise.reject("BLOCKING_ERROR", "Failed to stop blocking: ${e.message}", e)
       }
     }
 
@@ -143,10 +133,7 @@ class ExpoAppBlockerModule : Module() {
 
         promise.resolve(isActive)
       } catch (e: Exception) {
-        promise.reject(
-          CodedException("BLOCKING_ERROR", "Failed to check blocking state: ${e.message}")
-            .apply { initCause(e) }
-        )
+        promise.reject("BLOCKING_ERROR", "Failed to check blocking state: ${e.message}", e)
       }
     }
 

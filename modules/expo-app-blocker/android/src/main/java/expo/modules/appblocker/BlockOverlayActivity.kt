@@ -43,7 +43,7 @@ class BlockOverlayActivity : Activity() {
   private fun createDarkThemedLayout(): ScrollView {
     val scrollView = ScrollView(this)
     scrollView.setBackgroundColor(Color.parseColor("#0A0A0A"))
-    scrollView.fillViewport = true
+    scrollView.isFillViewport = true
 
     val mainLayout = LinearLayout(this)
     mainLayout.orientation = LinearLayout.VERTICAL
@@ -202,7 +202,6 @@ class BlockOverlayActivity : Activity() {
     returnButton.setTextColor(Color.parseColor("#FFFFFF"))
     returnButton.setBackgroundColor(Color.parseColor("#10B981"))
     returnButton.setPadding(32, 24, 32, 24)
-    returnButton.cornerRadius = 12
     returnButton.elevation = 4f
     returnButton.setOnClickListener {
       returnToHome()

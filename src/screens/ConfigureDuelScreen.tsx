@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { Card, Button } from '../components/ui';
+import { AppPicker } from '../components/AppPicker';
 import { COLORS, SPACING } from '../constants/theme';
-import { MOCK_APP_LIST } from '../constants/mockApps';
 import type { DuelType } from '../types/duel';
 
 interface RouteParams {
@@ -53,11 +53,11 @@ export default function ConfigureDuelScreen({ route, navigation }: ConfigureDuel
   const [streakDays, setStreakDays] = useState('3');
   const [bannedApps, setBannedApps] = useState<string[]>([]);
 
-  const toggleApp = (appId: string) => {
+  const toggleApp = (packageName: string) => {
     setBannedApps(prev =>
-      prev.includes(appId)
-        ? prev.filter(id => id !== appId)
-        : [...prev, appId]
+      prev.includes(packageName)
+        ? prev.filter(pkg => pkg !== packageName)
+        : [...prev, packageName]
     );
   };
 
@@ -129,32 +129,7 @@ export default function ConfigureDuelScreen({ route, navigation }: ConfigureDuel
       </Card>
 
       <Card title="Banned Apps" subtitle={`Select apps to block (${bannedApps.length} selected)`}>
-        <View style={styles.appsGrid}>
-          {MOCK_APP_LIST.map((app) => (
-            <TouchableOpacity
-              key={app.id}
-              style={[
-                styles.appCard,
-                bannedApps.includes(app.id) && styles.appCardSelected,
-              ]}
-              onPress={() => toggleApp(app.id)}
-            >
-              <Text style={styles.appIcon}>{app.icon_emoji}</Text>
-              <Text style={[
-                styles.appName,
-                bannedApps.includes(app.id) && styles.appNameSelected,
-              ]}>
-                {app.name}
-              </Text>
-              <View style={[
-                styles.checkbox,
-                bannedApps.includes(app.id) && styles.checkboxChecked,
-              ]}>
-                {bannedApps.includes(app.id) && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <AppPicker selected={bannedApps} onToggle={toggleApp} />
       </Card>
 
       <Button
@@ -223,52 +198,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-  },
-  appsGrid: {
-    gap: SPACING.sm,
-  },
-  appCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 12,
-    padding: SPACING.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  appCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}20`,
-  },
-  appIcon: {
-    fontSize: 24,
-    marginRight: SPACING.md,
-  },
-  appName: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  appNameSelected: {
-    color: COLORS.primary,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  checkmark: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

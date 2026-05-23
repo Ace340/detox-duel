@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Vibration, ScrollView } from 'react-native';
 import { Button, Card } from '../components/ui';
+import { AppPicker } from '../components/AppPicker';
 import { COLORS, SPACING } from '../constants/theme';
 import { useFocusTimer } from '../hooks/useFocusTimer';
 import { formatSecondsToMMSS } from '../utils/timeFormat';
@@ -8,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { saveCompletedSessionToSupabase } from '../hooks/useFocusSupabase';
 import { saveActiveSession, saveCompletedSession, updateTodayTotal, clearActiveSession } from '../hooks/useFocusStorage';
 import { scheduleSessionReminder, cancelAllNotifications } from '../services/notifications';
+import { AppBlocker } from '../services/appBlocker';
 import { CategoryPicker } from '../components/CategoryPicker';
 import type { FocusSession } from '../types';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -17,17 +19,55 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FocusSession'>;
 
 type SessionPhase = 'setup' | 'active' | 'completed';
 
+/**
+ * Checks permissions and starts app blocking for a focus session.
+ * Returns true if blocking started successfully (or no apps to block).
+ * Returns false if permissions are missing (caller should navigate to guide).
+ */
+async function tryStartBlocking(
+  packageNames: string[],
+  sessionId: string,
+): Promise<{ ok: true } | { ok: false; reason: 'permissions' }> {
+  if (packageNames.length === 0) {
+    return { ok: true };
+  }
+
+  const hasPermission = await AppBlocker.hasPermission();
+  if (!hasPermission) {
+    return { ok: false, reason: 'permissions' };
+  }
+
+  try {
+    await AppBlocker.startBlocking(packageNames, sessionId);
+    return { ok: true };
+  } catch (error) {
+    console.error('[FocusSessionScreen] Failed to start blocking:', error);
+    // Blocking failure should not prevent the session from starting.
+    // The user still gets their focus timer even if blocking is unavailable.
+    return { ok: true };
+  }
+}
+
 export default function FocusSessionScreen({ route, navigation }: Props) {
   const { duration } = route.params;
   const { user } = useAuth();
   const { remainingSeconds, isRunning, startTimer, stopTimer } = useFocusTimer(duration * 60);
   const [phase, setPhase] = useState<SessionPhase>('setup');
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [selectedApps, setSelectedApps] = useState<string[]>([]);
   const [completed, setCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const sessionStartTime = useState(() => new Date().toISOString())[0];
   const sessionId = useState(() => `local-${Date.now()}`)[0];
+
+  const toggleApp = useCallback((packageName: string) => {
+    setSelectedApps(prev =>
+      prev.includes(packageName)
+        ? prev.filter(pkg => pkg !== packageName)
+        : [...prev, packageName]
+    );
+  }, []);
 
   const finishSession = useCallback(async (status: 'completed' | 'cancelled') => {
     if (saving) return;
@@ -39,7 +79,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
       start_time: sessionStartTime,
       end_time: new Date().toISOString(),
       duration_minutes: duration,
-      blocked_apps: [],
+      blocked_apps: selectedApps,
       status,
       category: selectedCategory,
     };
@@ -54,19 +94,34 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     } catch (error) {
       console.error('[FocusSessionScreen] Error during session completion:', error);
     } finally {
-      // Always clear the active session, even if there's an error
+      // Always stop blocking and clear the active session
+      if (selectedApps.length > 0) {
+        AppBlocker.stopBlocking().catch((err) => {
+          console.error('[FocusSessionScreen] Failed to stop blocking:', err);
+        });
+      }
       await clearActiveSession();
       setSaving(false);
     }
-  }, [sessionId, user?.id, sessionStartTime, duration, saving]);
+  }, [sessionId, user?.id, sessionStartTime, duration, saving, selectedApps, selectedCategory]);
 
-  const startSession = useCallback(() => {
+  const startSession = useCallback(async () => {
+    // Check permissions before starting if apps are selected
+    if (selectedApps.length > 0) {
+      const result = await tryStartBlocking(selectedApps, sessionId);
+      if (!result.ok) {
+        navigation.navigate('AccessibilityGuideScreen');
+        return;
+      }
+    }
+
     setPhase('active');
     startTimer();
     // Schedule halfway reminder
-    let notifId: string | null = null;
-    scheduleSessionReminder(duration).then(id => { notifId = id; });
-  }, [startTimer, duration]);
+    scheduleSessionReminder(duration).catch((err) => {
+      console.error('[FocusSessionScreen] Failed to schedule reminder:', err);
+    });
+  }, [selectedApps, sessionId, startTimer, duration, navigation]);
 
   // Cleanup notifications when component unmounts
   useEffect(() => {
@@ -85,7 +140,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
       start_time: sessionStartTime,
       end_time: '',
       duration_minutes: duration,
-      blocked_apps: [],
+      blocked_apps: selectedApps,
       status: 'active',
       category: selectedCategory,
     };
@@ -93,7 +148,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     saveActiveSession(activeSession).catch(error => {
       console.error('Failed to save active session:', error);
     });
-  }, [sessionId, user?.id, sessionStartTime, duration, selectedCategory, phase]);
+  }, [sessionId, user?.id, sessionStartTime, duration, selectedApps, selectedCategory, phase]);
 
   useEffect(() => {
     if (remainingSeconds === 0 && !isRunning && !completed) {
@@ -130,7 +185,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     );
   }
 
-  // Setup phase: Show category picker
+  // Setup phase: Show category picker + app picker
   if (phase === 'setup') {
     return (
       <View style={styles.container}>
@@ -148,19 +203,27 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
-
-            <View style={styles.setupButtonContainer}>
-              <Button
-                title="Start Focusing"
-                onPress={startSession}
-              />
-              <Button
-                title="Cancel"
-                onPress={() => navigation.navigate('Tabs')}
-                variant="outline"
-              />
-            </View>
           </Card>
+
+          <Card
+            title="Block Distracting Apps"
+            subtitle={selectedApps.length > 0 ? `${selectedApps.length} apps selected` : 'Optional — select apps to block'}
+            style={styles.card}
+          >
+            <AppPicker selected={selectedApps} onToggle={toggleApp} />
+          </Card>
+
+          <View style={styles.setupButtonContainer}>
+            <Button
+              title="Start Focusing"
+              onPress={startSession}
+            />
+            <Button
+              title="Cancel"
+              onPress={() => navigation.navigate('Tabs')}
+              variant="outline"
+            />
+          </View>
         </ScrollView>
       </View>
     );
@@ -173,6 +236,11 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
         {selectedCategory && (
           <Text style={styles.categoryLabel}>
             Focus: {selectedCategory}
+          </Text>
+        )}
+        {selectedApps.length > 0 && (
+          <Text style={styles.blockedAppsLabel}>
+            🔒 {selectedApps.length} app{selectedApps.length !== 1 ? 's' : ''} blocked
           </Text>
         )}
         <Text style={styles.timer}>{formatSecondsToMMSS(remainingSeconds)}</Text>
@@ -217,6 +285,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   setupButtonContainer: {
+    width: '100%',
+    maxWidth: 400,
     gap: SPACING.sm,
     marginTop: SPACING.lg,
   },
@@ -238,6 +308,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: SPACING.sm,
+  },
+  blockedAppsLabel: {
+    color: COLORS.success,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
   },
   completedTime: {
     color: COLORS.primary,
