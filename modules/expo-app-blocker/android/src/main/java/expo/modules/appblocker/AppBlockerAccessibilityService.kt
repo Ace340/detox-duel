@@ -16,6 +16,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 
 /**
@@ -55,6 +56,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     // Coroutine scope for async operations
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /** Name of the flag file written when the service is connected. */
+    const val SERVICE_FLAG_FILENAME = "accessibility_service_running"
   }
 
   // OkHttp client for Supabase requests
@@ -114,6 +118,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     Log.d(TAG, "AccessibilityService connected")
     isOverlayShowing = false
     lastBlockedPackage = null
+
+    // Write flag file so the module can detect this service is running
+    writeServiceFlag()
   }
 
   override fun onDestroy() {
@@ -122,6 +129,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     serviceScope.cancel()
     isOverlayShowing = false
     lastBlockedPackage = null
+
+    // Remove flag file
+    deleteServiceFlag()
   }
 
   /**
@@ -354,6 +364,35 @@ class AppBlockerAccessibilityService : AccessibilityService() {
       startActivity(homeIntent)
     } catch (e: Exception) {
       Log.e(TAG, "Failed to go to home screen", e)
+    }
+  }
+
+  /**
+   * Write a flag file to signal that this accessibility service is running.
+   * The native module checks for this file to determine permission status.
+   */
+  private fun writeServiceFlag() {
+    try {
+      val flagFile = File(filesDir, SERVICE_FLAG_FILENAME)
+      flagFile.writeText("running")
+      Log.d(TAG, "Service flag file written: ${flagFile.absolutePath}")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to write service flag file", e)
+    }
+  }
+
+  /**
+   * Delete the flag file when the service is destroyed.
+   */
+  private fun deleteServiceFlag() {
+    try {
+      val flagFile = File(filesDir, SERVICE_FLAG_FILENAME)
+      if (flagFile.exists()) {
+        flagFile.delete()
+        Log.d(TAG, "Service flag file deleted")
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to delete service flag file", e)
     }
   }
 

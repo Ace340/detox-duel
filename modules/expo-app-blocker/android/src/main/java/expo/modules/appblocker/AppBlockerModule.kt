@@ -2,11 +2,11 @@ package expo.modules.appblocker
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.provider.Settings
 import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
+import java.io.File
 
 /**
  * AppBlockerModule - Expo native module for managing app blocking state.
@@ -229,27 +229,16 @@ class ExpoAppBlockerModule : Module() {
   }
 
   /**
-   * Check if our AppBlockerAccessibilityService is currently enabled
-   * by reading the system's ENABLED_ACCESSIBILITY_SERVICES setting.
+   * Check if our AppBlockerAccessibilityService is currently running
+   * by looking for the flag file it writes on connect and deletes on destroy.
    *
-   * This is more reliable across OEMs (Samsung, Xiaomi, etc.) than
-   * AccessibilityManager.getEnabledAccessibilityServiceList().
+   * This is OEM-independent and works reliably on Samsung, Xiaomi, etc.
    */
   private fun isAccessibilityServiceEnabled(): Boolean {
     val context = appContext.reactContext ?: return false
-
-    val enabledServices = try {
-      Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-      )
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to read enabled accessibility services", e)
-      return false
-    } ?: return false
-
-    val serviceName = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
-
-    return enabledServices.contains(serviceName)
+    val flagFile = File(context.filesDir, AppBlockerAccessibilityService.SERVICE_FLAG_FILENAME)
+    val exists = flagFile.exists()
+    Log.d(TAG, "Service flag check: ${flagFile.absolutePath} exists=$exists")
+    return exists
   }
 }

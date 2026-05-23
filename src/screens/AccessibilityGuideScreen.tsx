@@ -61,10 +61,17 @@ export default function AccessibilityGuideScreen() {
   const handleOpenSettings = useCallback(async () => {
     try {
       if (Platform.OS === 'android') {
-        await Linking.openSettings();
+        // Open accessibility settings directly (not generic settings)
+        await Linking.sendIntent('android.settings.ACCESSIBILITY_SETTINGS');
       }
     } catch (error) {
       console.error('Failed to open settings:', error);
+      // Fallback to generic settings
+      try {
+        await Linking.openSettings();
+      } catch (fallbackError) {
+        console.error('Failed to open fallback settings:', fallbackError);
+      }
     }
   }, []);
 
@@ -128,29 +135,29 @@ export default function AccessibilityGuideScreen() {
           <StepCard
             stepNumber={1}
             emoji="⚙️"
-            title="Open Settings"
-            description="Go to your device Settings → Accessibility"
+            title="Open Accessibility Settings"
+            description="Tap the 'Open Accessibility Settings' button below, or go to Settings → Accessibility"
           />
 
           <StepCard
             stepNumber={2}
             emoji="🔍"
-            title="Find the Service"
-            description="Scroll down and find 'Detox Duel App Blocker'"
+            title="Find Installed Services"
+            description="On Samsung: scroll to bottom and tap 'Installed services'. On other devices: look for 'Services' or 'Downloaded services'."
           />
 
           <StepCard
             stepNumber={3}
             emoji="🔘"
-            title="Enable Service"
-            description="Toggle the switch to turn it ON"
+            title="Enable Detox Duel"
+            description="Find 'Detox Duel App Blocker' in the list, tap it, and toggle it ON"
           />
 
           <StepCard
             stepNumber={4}
             emoji="✅"
-            title="Confirm Permission"
-            description="Review and confirm the permission request"
+            title="Allow & Confirm"
+            description="A permission warning will appear. Tap 'Allow' or 'OK' to confirm, then come back and tap 'I've Enabled It' below"
           />
         </View>
 
@@ -172,7 +179,7 @@ export default function AccessibilityGuideScreen() {
             onPress={handleOpenSettings}
             activeOpacity={0.7}
           >
-            <Text style={styles.secondaryButtonText}>⚙️ Open Settings</Text>
+            <Text style={styles.secondaryButtonText}>⚙️ Open Accessibility Settings</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
