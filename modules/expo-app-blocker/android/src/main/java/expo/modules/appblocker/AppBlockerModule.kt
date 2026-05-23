@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
-import expo.modules.kotlin.exception.CodedException
 
 /**
  * AppBlockerModule - Expo native module for managing app blocking state.
