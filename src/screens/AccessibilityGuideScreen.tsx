@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Linking } from 'react-native';
 import { COLORS, SPACING } from '../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { AppBlocker } from '../services/appBlocker';
 
 type AccessibilityGuideNavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,6 +56,7 @@ function VisualGuidePlaceholder() {
 
 export default function AccessibilityGuideScreen() {
   const navigation = useNavigation<AccessibilityGuideNavProp>();
+  const [checking, setChecking] = useState(false);
 
   const handleOpenSettings = useCallback(async () => {
     try {
@@ -67,6 +70,31 @@ export default function AccessibilityGuideScreen() {
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
+  }, [navigation]);
+
+  const handlePermissionGranted = useCallback(async () => {
+    setChecking(true);
+    try {
+      const hasPermission = await AppBlocker.hasPermission();
+      if (hasPermission) {
+        navigation.goBack();
+      } else {
+        Alert.alert(
+          'Not Yet Enabled',
+          'The Accessibility Service is not enabled yet.\n\nPlease make sure you followed all 4 steps and enabled "Detox Duel App Blocker" in your Accessibility Settings.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Failed to check permission:', error);
+      Alert.alert(
+        'Error',
+        'Could not verify permission status. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setChecking(false);
+    }
   }, [navigation]);
 
   return (
@@ -130,18 +158,29 @@ export default function AccessibilityGuideScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={handleOpenSettings}
+            onPress={handlePermissionGranted}
             activeOpacity={0.7}
+            disabled={checking}
           >
-            <Text style={styles.primaryButtonText}>⚙️ Open Settings</Text>
+            <Text style={styles.primaryButtonText}>
+              {checking ? 'Checking...' : '✅ I\'ve Enabled It'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
+            onPress={handleOpenSettings}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.secondaryButtonText}>⚙️ Open Settings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tertiaryButton}
             onPress={handleGoBack}
             activeOpacity={0.7}
           >
-            <Text style={styles.secondaryButtonText}>← Back to Duel</Text>
+            <Text style={styles.tertiaryButtonText}>← Back to Duel</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -306,5 +345,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  tertiaryButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    alignItems: 'center',
+  },
+  tertiaryButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

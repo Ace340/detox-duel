@@ -1,10 +1,15 @@
 package expo.modules.appblocker
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
 
 /**
  * AppBlockerModule - Expo native module for managing app blocking state.
@@ -13,9 +18,21 @@ import expo.modules.kotlin.Promise
  * It uses SharedPreferences with MODE_MULTI_PROCESS to enable communication
  * between this module and the AccessibilityService which runs in a separate process.
  */
+  /**
+   * Kotlin Record returned by getBlockingState().
+   * Field names match the BlockingState TypeScript interface.
+   */
+  class BlockingStateRecord : Record {
+    @Field val isActive: Boolean = false
+    @Field val duelId: String? = null
+    @Field val blockedApps: List<String> = emptyList()
+  }
+
 class ExpoAppBlockerModule : Module() {
 
   companion object {
+    private const val TAG = "ExpoAppBlocker"
+
     // SharedPreferences file name for storing blocking state
     private const val PREFS_NAME = "app_blocker_prefs"
 
@@ -166,6 +183,82 @@ class ExpoAppBlockerModule : Module() {
     fun getDuelId(): String? {
       val prefs = getSharedPrefs()
       return prefs.getString(KEY_DUEL_ID, null)
+    }
+
+    /**
+     * Check if the app's Accessibility Service is enabled.
+     *
+     * Iterates through all running accessibility services to find
+     * our AppBlockerAccessibilityService.
+     *
+     * @param promise Resolves with true if the service is enabled
+     */
+    AsyncFunction("hasPermission") { promise: Promise ->
+      try {
+        val enabled = isAccessibilityServiceEnabled()
+        promise.resolve(enabled)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to check accessibility permission", e)
+        promise.resolve(false)
+      }
+    }
+
+    /**
+     * Get the current blocking state as a structured record.
+     *
+     * Returns isActive, duelId, and blockedApps matching the
+     * TypeScript BlockingState interface.
+     *
+     * @param promise Resolves with a map containing the blocking state
+     */
+    AsyncFunction("getBlockingState") { promise: Promise ->
+      try {
+        val prefs = getSharedPrefs()
+        val isActive = prefs.getBoolean(KEY_IS_BLOCKING, false)
+        val duelId = prefs.getString(KEY_DUEL_ID, null)
+        val packagesString = prefs.getString(KEY_BLOCKED_PACKAGES, "") ?: ""
+
+        val blockedApps: List<String> = if (packagesString.isBlank()) {
+          emptyList()
+        } else {
+          packagesString.split(",").filter { it.isNotBlank() }
+        }
+
+        val result = mapOf(
+          "isActive" to isActive,
+          "duelId" to duelId,
+          "blockedApps" to blockedApps
+        )
+        promise.resolve(result)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to get blocking state", e)
+        promise.resolve(mapOf(
+          "isActive" to false,
+          "duelId" to null,
+          "blockedApps" to emptyList<String>()
+        ))
+      }
+    }
+  }
+
+  /**
+   * Check if our AppBlockerAccessibilityService is currently enabled
+   * in the system accessibility settings.
+   */
+  private fun isAccessibilityServiceEnabled(): Boolean {
+    val context = appContext.reactContext ?: return false
+    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+      ?: return false
+
+    val enabledServices = am.getEnabledAccessibilityServiceList(
+      AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+    )
+
+    val targetService = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
+
+    return enabledServices.any { serviceInfo ->
+      val serviceFlat = "${serviceInfo.resolveInfo.serviceInfo.packageName}/${serviceInfo.resolveInfo.serviceInfo.name}"
+      serviceFlat == targetService
     }
   }
 }
