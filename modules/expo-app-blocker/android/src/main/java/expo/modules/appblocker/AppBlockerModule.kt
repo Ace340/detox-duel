@@ -1,15 +1,12 @@
 package expo.modules.appblocker
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.SharedPreferences
+import android.provider.Settings
 import android.util.Log
-import android.view.accessibility.AccessibilityManager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
-import expo.modules.kotlin.records.Field
-import expo.modules.kotlin.records.Record
 
 /**
  * AppBlockerModule - Expo native module for managing app blocking state.
@@ -18,16 +15,6 @@ import expo.modules.kotlin.records.Record
  * It uses SharedPreferences with MODE_MULTI_PROCESS to enable communication
  * between this module and the AccessibilityService which runs in a separate process.
  */
-  /**
-   * Kotlin Record returned by getBlockingState().
-   * Field names match the BlockingState TypeScript interface.
-   */
-  class BlockingStateRecord : Record {
-    @Field val isActive: Boolean = false
-    @Field val duelId: String? = null
-    @Field val blockedApps: List<String> = emptyList()
-  }
-
 class ExpoAppBlockerModule : Module() {
 
   companion object {
@@ -243,22 +230,26 @@ class ExpoAppBlockerModule : Module() {
 
   /**
    * Check if our AppBlockerAccessibilityService is currently enabled
-   * in the system accessibility settings.
+   * by reading the system's ENABLED_ACCESSIBILITY_SERVICES setting.
+   *
+   * This is more reliable across OEMs (Samsung, Xiaomi, etc.) than
+   * AccessibilityManager.getEnabledAccessibilityServiceList().
    */
   private fun isAccessibilityServiceEnabled(): Boolean {
     val context = appContext.reactContext ?: return false
-    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
-      ?: return false
 
-    val enabledServices = am.getEnabledAccessibilityServiceList(
-      AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-    )
+    val enabledServices = try {
+      Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+      )
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to read enabled accessibility services", e)
+      return false
+    } ?: return false
 
-    val targetService = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
+    val serviceName = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
 
-    return enabledServices.any { serviceInfo ->
-      val serviceFlat = "${serviceInfo.resolveInfo.serviceInfo.packageName}/${serviceInfo.resolveInfo.serviceInfo.name}"
-      serviceFlat == targetService
-    }
+    return enabledServices.contains(serviceName)
   }
 }
