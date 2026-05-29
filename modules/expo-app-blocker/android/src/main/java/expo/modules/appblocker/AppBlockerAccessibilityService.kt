@@ -44,8 +44,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private const val PREF_SUPABASE_KEY = "supabase_key"
     private const val PREF_USER_ID = "user_id"
 
-    // Package name of the main app
-    private const val MAIN_APP_PACKAGE = "com.expo.client"
+    // Package name of the main app (must match app.json → android.package)
+    private const val MAIN_APP_PACKAGE = "com.detoxduel.app"
 
     // Timeout for Supabase requests (in seconds)
     private const val NETWORK_TIMEOUT = 10L

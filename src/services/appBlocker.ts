@@ -1,6 +1,6 @@
 import { Platform, PermissionsAndroid, Linking, Alert } from 'react-native';
 
-import { BlockingState } from '../../modules/expo-app-blocker/src/AppBlocker.types';
+import { BlockingConfig, BlockingState } from '../../modules/expo-app-blocker/src/AppBlocker.types';
 
 /**
  * Lazy-load expo-app-blocker to avoid crashes in Expo Go.
@@ -177,17 +177,23 @@ export class AppBlocker {
    *
    * @param packageNames - Array of Android package names to block (e.g., ["com.instagram.android"])
    * @param duelId - The ID of the active duel
+   * @param config - Supabase & duel metadata the AccessibilityService needs for violation reporting
    * @returns Promise<void>
    *
    * @example
    * ```typescript
    * await AppBlocker.startBlocking(
    *   ["com.instagram.android", "com.twitter.android"],
-   *   "duel_123"
+   *   "duel_123",
+   *   { supabaseUrl, supabaseKey, userId, duelType: "quick_duel", isQuickDuel: true }
    * );
    * ```
    */
-  static async startBlocking(packageNames: string[], duelId: string): Promise<void> {
+  static async startBlocking(
+    packageNames: string[],
+    duelId: string,
+    config: BlockingConfig,
+  ): Promise<void> {
     const mod = await getAppBlockerModule();
     if (!mod || Platform.OS === 'web') {
       console.warn('App blocking not available (requires development build)');
@@ -209,7 +215,7 @@ export class AppBlocker {
         throw new Error('Duel ID cannot be empty');
       }
 
-      await mod.default.startBlocking(packageNames, duelId);
+      await mod.default.startBlocking(packageNames, duelId, config);
     } catch (error) {
       console.error('Failed to start blocking:', error);
       throw error;

@@ -2,7 +2,10 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { supabase } from '../services/supabase';
 import { AppBlocker } from '../services/appBlocker';
-import type { DuelStatus } from '../types/duel';
+import type { DuelStatus, DuelType } from '../types/duel';
+
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 interface DuelBlockingOptions {
   userId: string;
@@ -30,6 +33,7 @@ export function useDuelBlocking({ userId, enabled = true }: DuelBlockingOptions)
     banned_apps: string[];
     creator_id: string;
     opponent_id: string;
+    duel_type?: DuelType;
   }) => {
     if (Platform.OS !== 'android' || !enabled) return;
 
@@ -47,7 +51,14 @@ export function useDuelBlocking({ userId, enabled = true }: DuelBlockingOptions)
       }
 
       try {
-        await AppBlocker.startBlocking(duel.banned_apps, duel.id);
+        const isQuickDuel = duel.duel_type === 'quick_duel';
+        await AppBlocker.startBlocking(duel.banned_apps, duel.id, {
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_KEY,
+          userId,
+          duelType: duel.duel_type,
+          isQuickDuel,
+        });
         activeDuelIdRef.current = duel.id;
         console.log('[useDuelBlocking] Started blocking for duel', duel.id);
       } catch (error) {
@@ -91,6 +102,7 @@ export function useDuelBlocking({ userId, enabled = true }: DuelBlockingOptions)
             banned_apps: string[];
             creator_id: string;
             opponent_id: string;
+            duel_type?: DuelType;
           };
           handleDuelChange(duel);
         },
@@ -102,7 +114,7 @@ export function useDuelBlocking({ userId, enabled = true }: DuelBlockingOptions)
       try {
         const { data: activeDuels } = await supabase
           .from('duels')
-          .select('id, status, banned_apps, creator_id, opponent_id')
+          .select('id, status, banned_apps, creator_id, opponent_id, duel_type')
           .or(`creator_id.eq.${userId},opponent_id.eq.${userId}`)
           .eq('status', 'active');
 

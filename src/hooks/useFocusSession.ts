@@ -20,6 +20,9 @@ import { usePoints } from './usePoints';
 import { AppBlocker } from '../services/appBlocker';
 import { FocusSession, WeeklyScore } from '../types';
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
 interface UseFocusSessionReturn {
   currentSession: FocusSession | null;
   todayTotal: number;
@@ -58,12 +61,17 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
     try {
       const hasPermission = await AppBlocker.hasPermission();
       if (hasPermission) {
-        await AppBlocker.startBlocking(packageNames, sessionId);
+        await AppBlocker.startBlocking(packageNames, sessionId, {
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_KEY,
+          userId,
+          duelType: 'focus_session',
+        });
       }
     } catch (error) {
       console.error('[useFocusSession] Failed to start app blocking:', error);
     }
-  }, []);
+  }, [userId]);
 
   /**
    * Stop app blocking. Safe to call even when blocking is not active.

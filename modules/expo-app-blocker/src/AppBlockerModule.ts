@@ -1,10 +1,14 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import { AppBlockerEvents, BlockingState } from './AppBlocker.types';
+import { AppBlockerEvents, BlockingConfig, BlockingState } from './AppBlocker.types';
 
 declare class ExpoAppBlockerModule extends NativeModule<AppBlockerEvents> {
   // Core blocking methods
-  startBlocking(packageNames: string[], duelId: string): Promise<void>;
+  startBlocking(
+    packageNames: string[],
+    duelId: string,
+    config: BlockingConfig,
+  ): Promise<void>;
   stopBlocking(): Promise<void>;
   isBlockingActive(): Promise<boolean>;
 

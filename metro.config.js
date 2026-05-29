@@ -1,22 +1,36 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
+// Use absolute paths to avoid any CWD-relative resolution issues
 const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '..');
 const localModulePath = path.resolve(projectRoot, './expo-screen-time');
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch the local expo-screen-time package directory.
-// Required because file: dependencies point outside the project root,
-// and Metro won't follow junctions to directories outside its boundary.
-config.watchFolders = [localModulePath];
+// Only watch the local expo-screen-time module.
+// Do NOT include workspaceRoot or workspace node_modules here —
+// that causes Metro to resolve the entry file from the workspace root
+// instead of the project root, breaking the Gradle JS bundle step.
+config.watchFolders = [
+  localModulePath,
+  path.resolve(projectRoot, 'modules', 'expo-app-blocker'),
+];
 
-// Force Metro to resolve all packages from the app's node_modules first.
-// Without this, files inside expo-screen-time/build/ would resolve 'expo'
-// to expo-screen-time/node_modules/expo (v55) instead of the app's (v54).
+// Remove any auto-added workspace-level watch folders (e.g. hoisted node_modules)
+config.watchFolders = config.watchFolders.filter(
+  (folder) => !folder.startsWith(workspaceRoot + path.sep) || folder === localModulePath || folder === path.resolve(projectRoot, 'modules', 'expo-app-blocker')
+);
+
+// Force Metro to resolve all packages from the app's node_modules first,
+// then fall back to the workspace root's node_modules for hoisted deps.
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
 ];
+
+// Ensure the project root is set explicitly as absolute path
+config.projectRoot = projectRoot;
 
 // Custom resolver for the local expo-screen-time package
 config.resolver.resolveRequest = (context, moduleName, platform) => {

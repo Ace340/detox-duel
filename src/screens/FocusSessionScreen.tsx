@@ -19,6 +19,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FocusSession'>;
 
 type SessionPhase = 'setup' | 'active' | 'completed';
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
 /**
  * Checks permissions and starts app blocking for a focus session.
  * Returns true if blocking started successfully (or no apps to block).
@@ -27,6 +30,7 @@ type SessionPhase = 'setup' | 'active' | 'completed';
 async function tryStartBlocking(
   packageNames: string[],
   sessionId: string,
+  userId: string,
 ): Promise<{ ok: true } | { ok: false; reason: 'permissions' }> {
   if (packageNames.length === 0) {
     return { ok: true };
@@ -38,7 +42,12 @@ async function tryStartBlocking(
   }
 
   try {
-    await AppBlocker.startBlocking(packageNames, sessionId);
+    await AppBlocker.startBlocking(packageNames, sessionId, {
+      supabaseUrl: SUPABASE_URL,
+      supabaseKey: SUPABASE_KEY,
+      userId,
+      duelType: 'focus_session',
+    });
     return { ok: true };
   } catch (error) {
     console.error('[FocusSessionScreen] Failed to start blocking:', error);
@@ -108,7 +117,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   const startSession = useCallback(async () => {
     // Check permissions before starting if apps are selected
     if (selectedApps.length > 0) {
-      const result = await tryStartBlocking(selectedApps, sessionId);
+      const result = await tryStartBlocking(selectedApps, sessionId, user?.id ?? '');
       if (!result.ok) {
         navigation.navigate('AccessibilityGuideScreen');
         return;

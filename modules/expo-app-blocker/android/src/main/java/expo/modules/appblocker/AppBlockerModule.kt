@@ -1,50 +1,51 @@
 package expo.modules.appblocker
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.provider.Settings
 import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
+import org.json.JSONArray
 import java.io.File
 
 /**
  * AppBlockerModule - Expo native module for managing app blocking state.
  *
  * This module manages the blocking state for banned apps during duels.
- * It uses SharedPreferences with MODE_MULTI_PROCESS to enable communication
- * between this module and the AccessibilityService which runs in a separate process.
+ * It uses SharedPreferences to share state with AppBlockerAccessibilityService.
+ * Both components read/write the same "AppBlockerPrefs" file with JSON arrays.
  */
 class ExpoAppBlockerModule : Module() {
 
   companion object {
     private const val TAG = "ExpoAppBlocker"
 
-    // SharedPreferences file name for storing blocking state
-    private const val PREFS_NAME = "app_blocker_prefs"
+    // SharedPreferences file name – must match AppBlockerAccessibilityService
+    const val PREFS_NAME = "AppBlockerPrefs"
 
-    // Key for storing the list of blocked package names
-    private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
-
-    // Key for storing the active duel ID
-    private const val KEY_DUEL_ID = "duel_id"
-
-    // Key for storing whether blocking is active
-    private const val KEY_IS_BLOCKING = "is_blocking"
+    // Keys – kept in sync with AppBlockerAccessibilityService companion object
+    const val KEY_BLOCKED_PACKAGES = "blocked_packages"
+    const val KEY_DUEL_ID = "duel_id"
+    const val KEY_DUEL_TYPE = "duel_type"
+    const val KEY_IS_BLOCKING = "is_blocking"
+    const val KEY_IS_QUICK_DUEL = "is_quick_duel"
+    const val KEY_SUPABASE_URL = "supabase_url"
+    const val KEY_SUPABASE_KEY = "supabase_key"
+    const val KEY_USER_ID = "user_id"
   }
 
   /**
-   * Get SharedPreferences instance with MODE_MULTI_PROCESS for inter-process communication.
-   * This allows the AccessibilityService (running in a separate process) to access the same data.
+   * Get SharedPreferences instance.
+   * Must use the same file name and mode as AppBlockerAccessibilityService.
    */
   private fun getSharedPrefs(): SharedPreferences {
     val context = requireNotNull(appContext.reactContext) {
       "React context is not available"
     }
-    return context.getSharedPreferences(
-      PREFS_NAME,
-      Context.MODE_MULTI_PROCESS
-    )
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
   }
 
   override fun definition() = ModuleDefinition {
@@ -53,16 +54,16 @@ class ExpoAppBlockerModule : Module() {
     /**
      * Start blocking for specified package names in a duel.
      *
-     * This method stores the blocked package names and duel ID in SharedPreferences,
-     * making them accessible to the AccessibilityService for monitoring.
+     * Stores all blocking state in SharedPreferences so the
+     * AccessibilityService can read it without the JS runtime.
      *
-     * @param packageNames List of Android package names to block (e.g., "com.instagram.android")
+     * @param packageNames List of Android package names to block
      * @param duelId The ID of the active duel
-     * @param promise Promise to resolve/reject the async operation
+     * @param config  Map with supabaseUrl, supabaseKey, userId, duelType?, isQuickDuel?
+     * @param promise Promise to resolve/reject
      */
-    AsyncFunction("startBlocking") { packageNames: List<String>, duelId: String, promise: Promise ->
+    AsyncFunction("startBlocking") { packageNames: List<String>, duelId: String, config: Map<String, Any?>, promise: Promise ->
       try {
-        // Validate input
         if (packageNames.isEmpty()) {
           promise.reject("INVALID_INPUT", "Blocked package names list cannot be empty", null)
           return@AsyncFunction
@@ -76,19 +77,24 @@ class ExpoAppBlockerModule : Module() {
         val prefs = getSharedPrefs()
         val editor = prefs.edit()
 
-        // Store blocked package names as a comma-separated string
-        val packagesString = packageNames.joinToString(",")
-        editor.putString(KEY_BLOCKED_PACKAGES, packagesString)
-
-        // Store the duel ID
+        // Blocked package names as JSON array
+        val packagesJson = JSONArray(packageNames).toString()
+        editor.putString(KEY_BLOCKED_PACKAGES, packagesJson)
         editor.putString(KEY_DUEL_ID, duelId)
-
-        // Mark blocking as active
         editor.putBoolean(KEY_IS_BLOCKING, true)
 
-        // Apply changes asynchronously (better performance than commit())
+        // Supabase credentials – needed by the service for violation reporting
+        config["supabaseUrl"]?.let { editor.putString(KEY_SUPABASE_URL, it.toString()) }
+        config["supabaseKey"]?.let { editor.putString(KEY_SUPABASE_KEY, it.toString()) }
+        config["userId"]?.let { editor.putString(KEY_USER_ID, it.toString()) }
+
+        // Optional duel metadata
+        config["duelType"]?.let { editor.putString(KEY_DUEL_TYPE, it.toString()) }
+        config["isQuickDuel"]?.let { editor.putBoolean(KEY_IS_QUICK_DUEL, it as? Boolean ?: false) }
+
         editor.apply()
 
+        Log.d(TAG, "Blocking started for duel $duelId with ${packageNames.size} apps")
         promise.resolve(null)
       } catch (e: Exception) {
         promise.reject("BLOCKING_ERROR", "Failed to start blocking: ${e.message}", e)
@@ -111,11 +117,17 @@ class ExpoAppBlockerModule : Module() {
         // Clear all blocking-related state
         editor.remove(KEY_BLOCKED_PACKAGES)
         editor.remove(KEY_DUEL_ID)
+        editor.remove(KEY_DUEL_TYPE)
+        editor.remove(KEY_SUPABASE_URL)
+        editor.remove(KEY_SUPABASE_KEY)
+        editor.remove(KEY_USER_ID)
         editor.putBoolean(KEY_IS_BLOCKING, false)
+        editor.putBoolean(KEY_IS_QUICK_DUEL, false)
 
         // Apply changes asynchronously
         editor.apply()
 
+        Log.d(TAG, "Blocking stopped, all state cleared")
         promise.resolve(null)
       } catch (e: Exception) {
         promise.reject("BLOCKING_ERROR", "Failed to stop blocking: ${e.message}", e)
@@ -150,12 +162,14 @@ class ExpoAppBlockerModule : Module() {
      */
     fun getBlockedPackages(): List<String> {
       val prefs = getSharedPrefs()
-      val packagesString = prefs.getString(KEY_BLOCKED_PACKAGES, "")
+      val packagesJson = prefs.getString(KEY_BLOCKED_PACKAGES, "[]") ?: "[]"
 
-      return if (packagesString.isNullOrEmpty()) {
+      return try {
+        val jsonArray = JSONArray(packagesJson)
+        (0 until jsonArray.length()).map { jsonArray.getString(it) }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to parse blocked packages", e)
         emptyList()
-      } else {
-        packagesString.split(",").filter { it.isNotBlank() }
       }
     }
 
@@ -191,6 +205,26 @@ class ExpoAppBlockerModule : Module() {
     }
 
     /**
+     * Open the Android Accessibility Settings page so the user can enable
+     * our service.  This is a manual step – we cannot enable it programmatically.
+     */
+    AsyncFunction("requestPermission") { promise: Promise ->
+      try {
+        val context = appContext.reactContext
+        if (context != null) {
+          val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          }
+          context.startActivity(intent)
+        }
+        promise.resolve(null)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to open accessibility settings", e)
+        promise.reject("PERMISSION_ERROR", "Failed to open accessibility settings: ${e.message}", e)
+      }
+    }
+
+    /**
      * Get the current blocking state as a structured record.
      *
      * Returns isActive, duelId, and blockedApps matching the
@@ -203,12 +237,13 @@ class ExpoAppBlockerModule : Module() {
         val prefs = getSharedPrefs()
         val isActive = prefs.getBoolean(KEY_IS_BLOCKING, false)
         val duelId = prefs.getString(KEY_DUEL_ID, null)
-        val packagesString = prefs.getString(KEY_BLOCKED_PACKAGES, "") ?: ""
+        val packagesJson = prefs.getString(KEY_BLOCKED_PACKAGES, "[]") ?: "[]"
 
-        val blockedApps: List<String> = if (packagesString.isBlank()) {
+        val blockedApps: List<String> = try {
+          val jsonArray = JSONArray(packagesJson)
+          (0 until jsonArray.length()).map { jsonArray.getString(it) }
+        } catch (e: Exception) {
           emptyList()
-        } else {
-          packagesString.split(",").filter { it.isNotBlank() }
         }
 
         val result = mapOf(
@@ -229,16 +264,37 @@ class ExpoAppBlockerModule : Module() {
   }
 
   /**
-   * Check if our AppBlockerAccessibilityService is currently running
-   * by looking for the flag file it writes on connect and deletes on destroy.
+   * Check if our AppBlockerAccessibilityService is currently enabled.
    *
-   * This is OEM-independent and works reliably on Samsung, Xiaomi, etc.
+   * Primary: flag-file check (OEM-independent).
+   * Fallback: inspect Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES.
    */
   private fun isAccessibilityServiceEnabled(): Boolean {
     val context = appContext.reactContext ?: return false
+
+    // --- Primary: flag file written by onServiceConnected() ---
     val flagFile = File(context.filesDir, AppBlockerAccessibilityService.SERVICE_FLAG_FILENAME)
-    val exists = flagFile.exists()
-    Log.d(TAG, "Service flag check: ${flagFile.absolutePath} exists=$exists")
-    return exists
+    if (flagFile.exists()) {
+      Log.d(TAG, "Service flag file found – service is running")
+      return true
+    }
+
+    // --- Fallback: Settings.Secure check ---
+    return try {
+      val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+      ) ?: return false
+
+      // enabledServices looks like "expo.modules.appblocker/.AppBlockerAccessibilityService:com.other/com.OtherService"
+      val ourService = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
+      val found = enabledServices.contains(context.packageName) &&
+                  enabledServices.contains("AppBlockerAccessibilityService")
+      Log.d(TAG, "Settings.Secure fallback: found=$found  services=$enabledServices")
+      found
+    } catch (e: Exception) {
+      Log.e(TAG, "Settings.Secure fallback failed", e)
+      false
+    }
   }
 }

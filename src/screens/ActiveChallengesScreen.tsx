@@ -25,6 +25,9 @@ import {
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { AppBlocker } from '../services/appBlocker';
 
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
 type ActiveChallengesNavProp = NativeStackNavigationProp<RootStackParamList, 'ActiveChallengesScreen'>;
 
 const CHALLENGE_TYPE_EMOJI: Record<ChallengeType, string> = {
@@ -244,7 +247,12 @@ export default function ActiveChallengesScreen() {
         const bannedApps = (challenge as any).banned_apps;
         if (bannedApps && bannedApps.length > 0) {
           try {
-            await AppBlocker.startBlocking(bannedApps, challenge.id);
+            await AppBlocker.startBlocking(bannedApps, challenge.id, {
+              supabaseUrl: SUPABASE_URL,
+              supabaseKey: SUPABASE_KEY,
+              userId: user?.id ?? '',
+              duelType: 'group_challenge',
+            });
             setBlockingActive(true);
           } catch (error) {
             console.error(`Failed to start blocking for challenge ${challenge.id}:`, error);
