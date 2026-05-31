@@ -23,22 +23,31 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 /**
- * Checks permissions and starts app blocking for a focus session.
+ * Checks both required permissions and starts app blocking for a focus session.
  * Returns true if blocking started successfully (or no apps to block).
- * Returns false if permissions are missing (caller should navigate to guide).
+ * Returns false with a reason if permissions are missing (caller should navigate to guide).
  */
 async function tryStartBlocking(
   packageNames: string[],
   sessionId: string,
   userId: string,
-): Promise<{ ok: true } | { ok: false; reason: 'permissions' }> {
+): Promise<{ ok: true } | { ok: false; reason: 'permissions'; missingOverlay: boolean; missingAccessibility: boolean }> {
   if (packageNames.length === 0) {
     return { ok: true };
   }
 
-  const hasPermission = await AppBlocker.hasPermission();
-  if (!hasPermission) {
-    return { ok: false, reason: 'permissions' };
+  const status = await AppBlocker.getPermissionStatus();
+  if (!status.allGranted) {
+    console.warn(
+      `[FocusSessionScreen] Cannot start blocking — ` +
+      `overlay=${status.overlay}, accessibility=${status.accessibility}`
+    );
+    return {
+      ok: false,
+      reason: 'permissions',
+      missingOverlay: !status.overlay,
+      missingAccessibility: !status.accessibility,
+    };
   }
 
   try {

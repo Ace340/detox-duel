@@ -40,10 +40,27 @@ async function getAppBlockerModule(): Promise<AppBlockerModule | null> {
 }
 
 /**
+ * Granular permission status for Android app blocking.
+ * Both `overlay` and `accessibility` must be true for blocking to work.
+ */
+export interface PermissionStatus {
+  /** SYSTEM_ALERT_WINDOW — can draw the blocking overlay over other apps */
+  overlay: boolean;
+  /** Accessibility Service — can detect when banned apps are opened */
+  accessibility: boolean;
+  /** Convenience: true only when both permissions are granted */
+  allGranted: boolean;
+}
+
+/**
  * App blocking service for Android duels
  *
  * Uses native module to block specified apps during active duels.
  * When a blocked app is opened, a blocking overlay is shown.
+ *
+ * Two permissions are required:
+ *   1. SYSTEM_ALERT_WINDOW (overlay) — to show the blocking screen on top of other apps
+ *   2. Accessibility Service — to detect when the user switches to a banned app
  *
  * On Android: Full support with Accessibility Service
  * On iOS: No-op (requires native permission patterns not available)
@@ -51,121 +68,112 @@ async function getAppBlockerModule(): Promise<AppBlockerModule | null> {
  * In Expo Go: Returns safe defaults (native module not available)
  */
 export class AppBlocker {
+  // ---------------------------------------------------------------
+  // Permission helpers
+  // ---------------------------------------------------------------
+
   /**
-   * Check if the app has required permissions
+   * Check both required permissions independently.
    *
-   * This checks two permissions:
-   * 1. SYSTEM_ALERT_WINDOW - for displaying the blocking overlay
-   * 2. Accessibility Service - for detecting app changes
-   *
-   * On Android: Checks both permissions and returns true only if both are granted
-   * On iOS/Web: Returns false (not supported)
-   *
-   * @returns Promise<boolean> - true if all permissions are granted
-   *
-   * @example
-   * ```typescript
-   * const hasPermission = await AppBlocker.hasPermission();
-   * if (!hasPermission) {
-   *   await AppBlocker.requestPermission();
-   * }
-   * ```
+   * Returns a `PermissionStatus` so callers can tell exactly which
+   * permission is missing and guide the user accordingly.
    */
-  static async hasPermission(): Promise<boolean> {
+  static async getPermissionStatus(): Promise<PermissionStatus> {
     if (Platform.OS !== 'android') {
-      return false;
+      return { overlay: false, accessibility: false, allGranted: false };
     }
 
-    const mod = await getAppBlockerModule();
-    if (!mod) {
-      return false;
-    }
-
+    // Check overlay (standard Android permission)
+    let overlay = false;
     try {
-      return await mod.default.hasPermission();
+      overlay = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW
+      );
     } catch (error) {
-      console.warn('Failed to check app blocker permissions:', error);
-      return false;
+      console.warn('[AppBlocker] Failed to check overlay permission:', error);
     }
+
+    // Check accessibility (native module flag-file + Settings.Secure)
+    let accessibility = false;
+    const mod = await getAppBlockerModule();
+    if (mod) {
+      try {
+        accessibility = await mod.default.hasPermission();
+      } catch (error) {
+        console.warn('[AppBlocker] Failed to check accessibility permission:', error);
+      }
+    }
+
+    const allGranted = overlay && accessibility;
+
+    console.debug(
+      `[AppBlocker] Permission status: overlay=${overlay}, accessibility=${accessibility}, allGranted=${allGranted}`
+    );
+
+    return { overlay, accessibility, allGranted };
   }
 
   /**
-   * Request required permissions from the user
-   *
-   * This method guides users to enable both required permissions:
-   * 1. SYSTEM_ALERT_WINDOW - for displaying overlays
-   * 2. Accessibility Service - for detecting app changes
-   *
-   * Both permissions must be manually enabled by the user in Android Settings.
-   * This method opens the appropriate settings pages with clear instructions.
-   *
-   * On Android: Opens system settings with clear instructions
-   * On iOS/Web: Logs warning and returns (not supported)
-   *
-   * @returns Promise<void>
-   *
-   * @example
-   * ```typescript
-   * await AppBlocker.requestPermission();
-   * // User is guided to enable permissions in settings
-   * ```
+   * Convenience: returns true only when BOTH permissions are granted.
    */
-  static async requestPermission(): Promise<void> {
+  static async hasPermission(): Promise<boolean> {
+    const status = await AppBlocker.getPermissionStatus();
+    return status.allGranted;
+  }
+
+  /**
+   * Guide the user through enabling both required permissions.
+   *
+   * Checks each permission in order and shows a targeted alert for the
+   * first missing one, so the user is never confused about what to do.
+   *
+   * Returns the current `PermissionStatus` after showing any alerts.
+   */
+  static async requestPermission(): Promise<PermissionStatus> {
     if (Platform.OS !== 'android') {
       console.warn('App blocking is only available on Android');
-      return;
+      return { overlay: false, accessibility: false, allGranted: false };
     }
 
-    const mod = await getAppBlockerModule();
-    if (!mod) {
-      console.warn('App blocking not available (requires development build)');
-      return;
-    }
+    const status = await AppBlocker.getPermissionStatus();
 
-    try {
-      // Check SYSTEM_ALERT_WINDOW permission
-      const hasSystemAlertPermission = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW
+    // Step 1: Overlay permission
+    if (!status.overlay) {
+      Alert.alert(
+        'Permission Required: Display Over Other Apps',
+        'Detox Duel needs permission to show a blocking screen over other apps.\n\n' +
+        'Please enable "Display over other apps" (or "Draw over other apps") in Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => Linking.openSettings(),
+          },
+        ]
       );
-
-      if (!hasSystemAlertPermission) {
-        Alert.alert(
-          'Permission Required',
-          'Please enable "Draw over other apps" to block distracting apps during duels.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Open Settings',
-              onPress: () => Linking.openSettings()
-            }
-          ]
-        );
-        return;
-      }
-
-      // Check Accessibility Service and guide user if not enabled
-      const hasAccessibilityPermission = await mod.default.hasPermission();
-
-      if (!hasAccessibilityPermission) {
-        Alert.alert(
-          'Enable Accessibility Service',
-          'To block apps during duels, you must enable the Detox Duel Accessibility Service.\n\n' +
-          'Go to Settings → Accessibility → Detox Duel → Enable',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                Linking.sendIntent('android.settings.ACCESSIBILITY_SETTINGS');
-              }
-            }
-          ]
-        );
-        return;
-      }
-    } catch (error) {
-      console.warn('Failed to request app blocker permissions:', error);
+      return status;
     }
+
+    // Step 2: Accessibility service
+    if (!status.accessibility) {
+      Alert.alert(
+        'Enable Accessibility Service',
+        'To detect when you open banned apps, please enable the Detox Duel Accessibility Service.\n\n' +
+        'Settings → Accessibility → Installed Services → Detox Duel App Blocker → Enable',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Accessibility Settings',
+            onPress: () => {
+              Linking.sendIntent('android.settings.ACCESSIBILITY_SETTINGS');
+            },
+          },
+        ]
+      );
+      return status;
+    }
+
+    return status;
   }
 
   /**
@@ -378,27 +386,11 @@ export class AppBlocker {
         PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW
       );
     } catch (error) {
-      console.warn('Failed to check overlay permission:', error);
+      console.warn('[AppBlocker] Failed to check overlay permission:', error);
       return false;
     }
   }
 
-  /**
-   * Check if Accessibility Service is enabled
-   *
-   * This is a helper method to specifically check if the Detox Duel
-   * Accessibility Service is enabled in Android Settings.
-   *
-   * @returns Promise<boolean> - true if Accessibility Service is enabled
-   *
-   * @example
-   * ```typescript
-   * const hasAccessibilityPermission = await AppBlocker.hasAccessibilityPermission();
-   * if (!hasAccessibilityPermission) {
-   *   // Guide user to enable it in settings
-   * }
-   * ```
-   */
   static async hasAccessibilityPermission(): Promise<boolean> {
     if (Platform.OS !== 'android') {
       return false;
@@ -412,7 +404,7 @@ export class AppBlocker {
     try {
       return await mod.default.hasPermission();
     } catch (error) {
-      console.warn('Failed to check accessibility permission:', error);
+      console.warn('[AppBlocker] Failed to check accessibility permission:', error);
       return false;
     }
   }

@@ -59,15 +59,22 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
     if (Platform.OS !== 'android' || packageNames.length === 0) return;
 
     try {
-      const hasPermission = await AppBlocker.hasPermission();
-      if (hasPermission) {
-        await AppBlocker.startBlocking(packageNames, sessionId, {
-          supabaseUrl: SUPABASE_URL,
-          supabaseKey: SUPABASE_KEY,
-          userId,
-          duelType: 'focus_session',
-        });
+      const status = await AppBlocker.getPermissionStatus();
+      if (!status.allGranted) {
+        console.warn(
+          `[useFocusSession] Cannot start blocking — missing permissions: ` +
+          `overlay=${status.overlay}, accessibility=${status.accessibility}. ` +
+          `Session will run without app blocking.`
+        );
+        return;
       }
+
+      await AppBlocker.startBlocking(packageNames, sessionId, {
+        supabaseUrl: SUPABASE_URL,
+        supabaseKey: SUPABASE_KEY,
+        userId,
+        duelType: 'focus_session',
+      });
     } catch (error) {
       console.error('[useFocusSession] Failed to start app blocking:', error);
     }
