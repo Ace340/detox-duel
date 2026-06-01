@@ -205,6 +205,27 @@ class ExpoAppBlockerModule : Module() {
     }
 
     /**
+     * Check if SYSTEM_ALERT_WINDOW (overlay) permission is granted.
+     *
+     * Uses Settings.canDrawOverlays() because SYSTEM_ALERT_WINDOW is an
+     * AppOps-level permission — React Native's PermissionsAndroid cannot
+     * check it (it only handles standard runtime permissions).
+     *
+     * @param promise Resolves with true if the overlay permission is granted
+     */
+    AsyncFunction("hasOverlayPermission") { promise: Promise ->
+      try {
+        val context = appContext.reactContext
+        val canDraw = context != null && Settings.canDrawOverlays(context)
+        Log.d(TAG, "Overlay permission check: canDrawOverlays=$canDraw")
+        promise.resolve(canDraw)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to check overlay permission", e)
+        promise.resolve(false)
+      }
+    }
+
+    /**
      * Open the Android Accessibility Settings page so the user can enable
      * our service.  This is a manual step – we cannot enable it programmatically.
      */

@@ -1,4 +1,4 @@
-import { Platform, PermissionsAndroid, Linking, Alert } from 'react-native';
+import { Platform, Linking, Alert } from 'react-native';
 
 import { BlockingConfig, BlockingState } from '../../modules/expo-app-blocker/src/AppBlocker.types';
 
@@ -83,14 +83,19 @@ export class AppBlocker {
       return { overlay: false, accessibility: false, allGranted: false };
     }
 
-    // Check overlay (standard Android permission)
+    // Check overlay via native module (Settings.canDrawOverlays).
+    // PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW is undefined —
+    // SYSTEM_ALERT_WINDOW is an AppOps-level permission, not a standard
+    // runtime permission, so React Native's PermissionsAndroid cannot
+    // check it.  We must use the native Android API instead.
     let overlay = false;
-    try {
-      overlay = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW
-      );
-    } catch (error) {
-      console.warn('[AppBlocker] Failed to check overlay permission:', error);
+    const overlayMod = await getAppBlockerModule();
+    if (overlayMod) {
+      try {
+        overlay = await overlayMod.default.hasOverlayPermission();
+      } catch (error) {
+        console.warn('[AppBlocker] Failed to check overlay permission:', error);
+      }
     }
 
     // Check accessibility (native module flag-file + Settings.Secure)
@@ -381,10 +386,13 @@ export class AppBlocker {
       return false;
     }
 
+    const mod = await getAppBlockerModule();
+    if (!mod) {
+      return false;
+    }
+
     try {
-      return await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.SYSTEM_ALERT_WINDOW
-      );
+      return await mod.default.hasOverlayPermission();
     } catch (error) {
       console.warn('[AppBlocker] Failed to check overlay permission:', error);
       return false;

@@ -14,6 +14,7 @@ declare class ExpoAppBlockerModule extends NativeModule<AppBlockerEvents> {
 
   // Permission methods
   hasPermission(): Promise<boolean>;
+  hasOverlayPermission(): Promise<boolean>;
   requestPermission(): Promise<void>;
 
   // Blocking state
