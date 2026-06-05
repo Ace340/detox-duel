@@ -366,6 +366,21 @@ export class AppBlocker {
   }
 
   /**
+   * Check whether the device is likely a tablet based on screen dimensions.
+   * Useful for adapting UI guidance and permission flows.
+   */
+  static async isTablet(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return false;
+    }
+    const { Dimensions } = require('react-native');
+    const { width, height } = Dimensions.get('window');
+    const { PixelRatio } = require('react-native');
+    const smallestWidthDp = Math.min(width, height) / PixelRatio.get();
+    return smallestWidthDp >= 600;
+  }
+
+  /**
    * Check if SYSTEM_ALERT_WINDOW permission is granted
    *
    * This is a helper method to specifically check the overlay permission

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.DisplayMetrics
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -45,10 +46,23 @@ class BlockOverlayActivity : Activity() {
     scrollView.setBackgroundColor(Color.parseColor("#0A0A0A"))
     scrollView.isFillViewport = true
 
+    // Responsive padding and text sizes for tablets
+    val metrics = DisplayMetrics()
+    windowManager.defaultDisplay.getMetrics(metrics)
+    val screenWidthDp = metrics.widthPixels / metrics.density
+    val isTablet = screenWidthDp >= 600
+    val padding = if (isTablet) 80 else 48
+    val titleSize = if (isTablet) 36f else 28f
+    val iconSize = if (isTablet) 96f else 72f
+    val subtitleSize = if (isTablet) 22f else 18f
+    val appNameSize = if (isTablet) 26f else 20f
+    val buttonPaddingH = if (isTablet) 48 else 32
+    val buttonPaddingV = if (isTablet) 32 else 24
+
     val mainLayout = LinearLayout(this)
     mainLayout.orientation = LinearLayout.VERTICAL
     mainLayout.setBackgroundColor(Color.parseColor("#0A0A0A"))
-    mainLayout.setPadding(48, 48, 48, 48)
+    mainLayout.setPadding(padding, padding, padding, padding)
     val mainParams = LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT,
       LinearLayout.LayoutParams.WRAP_CONTENT
@@ -63,7 +77,7 @@ class BlockOverlayActivity : Activity() {
     // Banned emoji icon
     val bannedIcon = TextView(this)
     bannedIcon.text = "🚫"
-    bannedIcon.textSize = 72f
+    bannedIcon.textSize = iconSize
     bannedIcon.textAlignment = View.TEXT_ALIGNMENT_CENTER
     val iconParams = LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT,
@@ -76,7 +90,7 @@ class BlockOverlayActivity : Activity() {
     // Banned message title
     val bannedTitle = TextView(this)
     bannedTitle.text = "This app is banned!"
-    bannedTitle.textSize = 28f
+    bannedTitle.textSize = titleSize
     bannedTitle.setTextColor(Color.parseColor("#FFFFFF"))
     bannedTitle.textAlignment = View.TEXT_ALIGNMENT_CENTER
     bannedTitle.setTypeface(null, android.graphics.Typeface.BOLD)
@@ -91,7 +105,7 @@ class BlockOverlayActivity : Activity() {
     // Subtitle message
     val subtitle = TextView(this)
     subtitle.text = "Back to your duel!"
-    subtitle.textSize = 18f
+    subtitle.textSize = subtitleSize
     subtitle.setTextColor(Color.parseColor("#9CA3AF"))
     subtitle.textAlignment = View.TEXT_ALIGNMENT_CENTER
     val subtitleParams = LinearLayout.LayoutParams(
@@ -130,7 +144,7 @@ class BlockOverlayActivity : Activity() {
 
     val appNameView = TextView(this)
     appNameView.text = appName
-    appNameView.textSize = 20f
+    appNameView.textSize = appNameSize
     appNameView.setTextColor(Color.parseColor("#EF4444"))
     appNameView.textAlignment = View.TEXT_ALIGNMENT_CENTER
     appNameView.setTypeface(null, android.graphics.Typeface.BOLD)
@@ -198,10 +212,10 @@ class BlockOverlayActivity : Activity() {
     // Return button
     val returnButton = Button(this)
     returnButton.text = "Return to Home"
-    returnButton.textSize = 16f
+    returnButton.textSize = if (isTablet) 20f else 16f
     returnButton.setTextColor(Color.parseColor("#FFFFFF"))
     returnButton.setBackgroundColor(Color.parseColor("#10B981"))
-    returnButton.setPadding(32, 24, 32, 24)
+    returnButton.setPadding(buttonPaddingH, buttonPaddingV, buttonPaddingH, buttonPaddingV)
     returnButton.elevation = 4f
     returnButton.setOnClickListener {
       returnToHome()

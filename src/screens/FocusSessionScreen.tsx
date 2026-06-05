@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Vibration, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Vibration, ScrollView, useWindowDimensions, Alert, Platform } from 'react-native';
 import { Button, Card } from '../components/ui';
 import { AppPicker } from '../components/AppPicker';
 import { COLORS, SPACING } from '../constants/theme';
@@ -24,8 +24,7 @@ const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 /**
  * Checks both required permissions and starts app blocking for a focus session.
- * Returns true if blocking started successfully (or no apps to block).
- * Returns false with a reason if permissions are missing (caller should navigate to guide).
+ * Returns the blocking result — callers MUST check this before starting the session.
  */
 async function tryStartBlocking(
   packageNames: string[],
@@ -69,6 +68,7 @@ async function tryStartBlocking(
 export default function FocusSessionScreen({ route, navigation }: Props) {
   const { duration } = route.params;
   const { user } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
   const { remainingSeconds, isRunning, startTimer, stopTimer } = useFocusTimer(duration * 60);
   const [phase, setPhase] = useState<SessionPhase>('setup');
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
@@ -78,6 +78,12 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
 
   const sessionStartTime = useState(() => new Date().toISOString())[0];
   const sessionId = useState(() => `local-${Date.now()}`)[0];
+
+  // Responsive sizing for tablets
+  const isTablet = screenWidth >= 600;
+  const maxCardWidth = isTablet ? 600 : 400;
+  const timerFontSize = isTablet ? 96 : 72;
+  const completedTimeFontSize = isTablet ? 48 : 36;
 
   const toggleApp = useCallback((packageName: string) => {
     setSelectedApps(prev =>
@@ -124,12 +130,32 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   }, [sessionId, user?.id, sessionStartTime, duration, saving, selectedApps, selectedCategory]);
 
   const startSession = useCallback(async () => {
-    // Check permissions before starting if apps are selected
-    if (selectedApps.length > 0) {
+    // If apps are selected, permissions MUST be granted before starting
+    if (selectedApps.length > 0 && Platform.OS === 'android') {
       const result = await tryStartBlocking(selectedApps, sessionId, user?.id ?? '');
+
       if (!result.ok) {
-        navigation.navigate('AccessibilityGuideScreen');
-        return;
+        // Permissions missing — block session start and guide user
+        const missingParts: string[] = [];
+        if (result.missingOverlay) missingParts.push('Display over other apps');
+        if (result.missingAccessibility) missingParts.push('Accessibility Service');
+
+        Alert.alert(
+          'Permissions Required',
+          `To block apps during your focus session, please enable:\n\n` +
+          `${missingParts.map(p => `• ${p}`).join('\n')}\n\n` +
+          `You'll be guided through the setup.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Set Up Permissions',
+              onPress: () => {
+                navigation.navigate('AccessibilityGuideScreen');
+              },
+            },
+          ]
+        );
+        return; // Do NOT start the session
       }
     }
 
@@ -139,7 +165,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
     scheduleSessionReminder(duration).catch((err) => {
       console.error('[FocusSessionScreen] Failed to schedule reminder:', err);
     });
-  }, [selectedApps, sessionId, startTimer, duration, navigation]);
+  }, [selectedApps, sessionId, startTimer, duration, user?.id, navigation]);
 
   // Cleanup notifications when component unmounts
   useEffect(() => {
@@ -195,8 +221,8 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   if (completed) {
     return (
       <View style={styles.container}>
-        <Card title="🎉 Session Complete!" subtitle="Great work staying focused" style={styles.card}>
-          <Text style={styles.completedTime}>{duration} minutes</Text>
+        <Card title="🎉 Session Complete!" subtitle="Great work staying focused" style={[styles.card, { maxWidth: maxCardWidth }]}>
+          <Text style={[styles.completedTime, { fontSize: completedTimeFontSize }]}>{duration} minutes</Text>
           <Button title="Done" onPress={handleDone} />
         </Card>
       </View>
@@ -214,7 +240,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
           <Card
             title="Start Focus Session"
             subtitle={`Duration: ${duration} minutes`}
-            style={styles.card}
+            style={[styles.card, { maxWidth: maxCardWidth }]}
           >
             <Text style={styles.setupTitle}>What are you focusing on?</Text>
             <CategoryPicker
@@ -226,12 +252,18 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
           <Card
             title="Block Distracting Apps"
             subtitle={selectedApps.length > 0 ? `${selectedApps.length} apps selected` : 'Optional — select apps to block'}
-            style={styles.card}
+            style={[styles.card, { maxWidth: maxCardWidth }]}
           >
             <AppPicker selected={selectedApps} onToggle={toggleApp} />
+
+            {selectedApps.length > 0 && (
+              <Text style={styles.permissionHint}>
+                🔒 App blocking requires accessibility permissions. You'll be prompted if needed.
+              </Text>
+            )}
           </Card>
 
-          <View style={styles.setupButtonContainer}>
+          <View style={[styles.setupButtonContainer, { maxWidth: maxCardWidth }]}>
             <Button
               title="Start Focusing"
               onPress={startSession}
@@ -250,7 +282,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   // Active phase: Show timer
   return (
     <View style={styles.container}>
-      <Card title="Focus Mode Active" subtitle={`Session: ${duration} minutes`} style={styles.card}>
+      <Card title="Focus Mode Active" subtitle={`Session: ${duration} minutes`} style={[styles.card, { maxWidth: maxCardWidth }]}>
         {selectedCategory && (
           <Text style={styles.categoryLabel}>
             Focus: {selectedCategory}
@@ -261,7 +293,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
             🔒 {selectedApps.length} app{selectedApps.length !== 1 ? 's' : ''} blocked
           </Text>
         )}
-        <Text style={styles.timer}>{formatSecondsToMMSS(remainingSeconds)}</Text>
+        <Text style={[styles.timer, { fontSize: timerFontSize }]}>{formatSecondsToMMSS(remainingSeconds)}</Text>
         <Text style={styles.progressLabel}>
           {isRunning ? 'Stay focused! You got this 💪' : 'Paused'}
         </Text>
@@ -288,7 +320,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 400,
   },
   setupContent: {
     flexGrow: 1,
@@ -304,13 +335,11 @@ const styles = StyleSheet.create({
   },
   setupButtonContainer: {
     width: '100%',
-    maxWidth: 400,
     gap: SPACING.sm,
     marginTop: SPACING.lg,
   },
   timer: {
     color: COLORS.primary,
-    fontSize: 72,
     fontWeight: 'bold',
     textAlign: 'center',
     marginVertical: SPACING.xl,
@@ -335,12 +364,18 @@ const styles = StyleSheet.create({
   },
   completedTime: {
     color: COLORS.primary,
-    fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     marginVertical: SPACING.xl,
   },
   buttonContainer: {
     gap: SPACING.sm,
+  },
+  permissionHint: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+    fontStyle: 'italic',
   },
 });

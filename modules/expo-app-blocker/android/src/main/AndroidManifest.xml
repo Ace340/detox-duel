@@ -23,6 +23,7 @@
       android:excludeFromRecents="true"
       android:taskAffinity=""
       android:noHistory="true"
-      android:launchMode="singleTask" />
+      android:launchMode="singleTask"
+      android:screenOrientation="unspecified" />
   </application>
 </manifest>

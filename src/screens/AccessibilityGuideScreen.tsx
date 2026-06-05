@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Platform,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { Linking } from 'react-native';
 import { COLORS, SPACING } from '../constants/theme';
@@ -54,10 +55,73 @@ function VisualGuidePlaceholder() {
   );
 }
 
+/**
+ * Tablet-specific OEM instructions for finding Accessibility settings.
+ */
+function TabletOEMGuide() {
+  return (
+    <View style={styles.oemCard}>
+      <Text style={styles.oemTitle}>📋 Tablet-Specific Instructions</Text>
+      <Text style={styles.oemSubtitle}>
+        Accessibility settings locations vary by tablet manufacturer:
+      </Text>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>Samsung Galaxy Tab</Text>
+        <Text style={styles.oemPath}>
+          Settings → Accessibility → Installed services → Detox Duel App Blocker → Enable
+        </Text>
+      </View>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>Xiaomi / Poco Pad</Text>
+        <Text style={styles.oemPath}>
+          Settings → Additional settings → Accessibility → Downloaded services → Detox Duel → Enable
+        </Text>
+      </View>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>Huawei / Honor MatePad</Text>
+        <Text style={styles.oemPath}>
+          Settings → Accessibility → Accessibility → Installed services → Detox Duel → Enable
+        </Text>
+      </View>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>Lenovo Tab</Text>
+        <Text style={styles.oemPath}>
+          Settings → Accessibility → Services → Detox Duel App Blocker → Enable
+        </Text>
+      </View>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>Amazon Fire Tablet</Text>
+        <Text style={styles.oemPath}>
+          Settings → Accessibility → Detected services → Detox Duel → Enable
+        </Text>
+      </View>
+
+      <View style={styles.oemEntry}>
+        <Text style={styles.oemBrand}>OPPO / OnePlus Pad</Text>
+        <Text style={styles.oemPath}>
+          Settings → Additional settings → Accessibility → Installed services → Detox Duel → Enable
+        </Text>
+      </View>
+
+      <Text style={styles.oemTip}>
+        💡 Tip: If you can't find "Accessibility" in Settings, try searching for it using the search bar at the top of Settings.
+      </Text>
+    </View>
+  );
+}
+
 export default function AccessibilityGuideScreen() {
   const navigation = useNavigation<AccessibilityGuideNavProp>();
   const [checking, setChecking] = useState(false);
   const [lastStatus, setLastStatus] = useState<PermissionStatus | null>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 600;
+  const maxContentWidth = isTablet ? 700 : undefined;
 
   const handleOpenOverlaySettings = useCallback(async () => {
     try {
@@ -122,13 +186,15 @@ export default function AccessibilityGuideScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>🛡️ Accessibility Setup Guide</Text>
+        <View style={[styles.header, { maxWidth: maxContentWidth }]}>
+          <Text style={[styles.headerTitle, { fontSize: isTablet ? 34 : 28 }]}>
+            🛡️ Accessibility Setup Guide
+          </Text>
         </View>
 
         {/* Status Banner */}
         {lastStatus && !lastStatus.allGranted && (
-          <View style={styles.statusBanner}>
+          <View style={[styles.statusBanner, { maxWidth: maxContentWidth }]}>
             <Text style={styles.statusBannerText}>
               ⚠️ Missing: {!lastStatus.overlay ? ' Overlay' : ''}{!lastStatus.accessibility ? ' Accessibility' : ''}
             </Text>
@@ -136,7 +202,7 @@ export default function AccessibilityGuideScreen() {
         )}
 
         {/* Explanation Card */}
-        <View style={styles.explanationCard}>
+        <View style={[styles.explanationCard, { maxWidth: maxContentWidth, padding: isTablet ? SPACING.xl : SPACING.lg }]}>
           <Text style={styles.explanationTitle}>Why is this needed?</Text>
           <Text style={styles.explanationText}>
             Detox Duel needs TWO permissions to block distracting apps during focus sessions and duels:
@@ -154,8 +220,8 @@ export default function AccessibilityGuideScreen() {
         <VisualGuidePlaceholder />
 
         {/* Steps */}
-        <View style={styles.stepsContainer}>
-          <Text style={styles.sectionTitle}>Setup Steps</Text>
+        <View style={[styles.stepsContainer, { maxWidth: maxContentWidth }]}>
+          <Text style={[styles.sectionTitle, { fontSize: isTablet ? 24 : 20 }]}>Setup Steps</Text>
 
           <StepCard
             stepNumber={1}
@@ -185,7 +251,11 @@ export default function AccessibilityGuideScreen() {
             stepNumber={3}
             emoji="🔍"
             title="Find Installed Services"
-            description="On Samsung: scroll to bottom and tap 'Installed services'. On other devices: look for 'Services' or 'Downloaded services'."
+            description={
+              'On most devices: scroll to "Installed services" or "Downloaded services".\n' +
+              'On Samsung: scroll to bottom and tap "Installed services".\n' +
+              'On Xiaomi/Huawei: look under "Additional settings" first.'
+            }
           />
 
           <StepCard
@@ -203,15 +273,20 @@ export default function AccessibilityGuideScreen() {
           />
         </View>
 
+        {/* Tablet-Specific OEM Guide */}
+        <View style={[{ maxWidth: maxContentWidth, width: '100%' }]}>
+          <TabletOEMGuide />
+        </View>
+
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+        <View style={[styles.actionButtons, { maxWidth: maxContentWidth }]}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { paddingVertical: isTablet ? SPACING.xl : SPACING.lg }]}
             onPress={handlePermissionGranted}
             activeOpacity={0.7}
             disabled={checking}
           >
-            <Text style={styles.primaryButtonText}>
+            <Text style={[styles.primaryButtonText, { fontSize: isTablet ? 18 : 16 }]}>
               {checking ? 'Checking...' : '✅ I\'ve Enabled Both'}
             </Text>
           </TouchableOpacity>
@@ -251,19 +326,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.lg,
+    alignItems: 'center',
   },
   header: {
     marginBottom: SPACING.lg,
+    width: '100%',
   },
   headerTitle: {
     color: COLORS.text,
-    fontSize: 28,
     fontWeight: 'bold',
   },
   explanationCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    padding: SPACING.lg,
+    width: '100%',
     marginBottom: SPACING.lg,
   },
   explanationTitle: {
@@ -292,6 +368,7 @@ const styles = StyleSheet.create({
   },
   visualGuideContainer: {
     marginBottom: SPACING.lg,
+    width: '100%',
   },
   visualGuidePlaceholder: {
     backgroundColor: COLORS.surface,
@@ -320,10 +397,10 @@ const styles = StyleSheet.create({
   },
   stepsContainer: {
     marginBottom: SPACING.xl,
+    width: '100%',
   },
   sectionTitle: {
     color: COLORS.text,
-    fontSize: 20,
     fontWeight: '600',
     marginBottom: SPACING.md,
   },
@@ -372,20 +449,61 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginLeft: 52,
   },
+  oemCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xl,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}30`,
+  },
+  oemTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  oemSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: SPACING.md,
+  },
+  oemEntry: {
+    marginBottom: SPACING.md,
+    paddingLeft: SPACING.md,
+    borderLeftWidth: 2,
+    borderLeftColor: COLORS.primary,
+  },
+  oemBrand: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  oemPath: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  oemTip: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: SPACING.sm,
+  },
   actionButtons: {
     gap: SPACING.md,
     marginBottom: SPACING.xl,
+    width: '100%',
   },
   primaryButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.xl,
     borderRadius: 12,
     alignItems: 'center',
   },
   primaryButtonText: {
     color: COLORS.background,
-    fontSize: 16,
     fontWeight: '600',
   },
   secondaryButton: {
@@ -419,6 +537,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.warning || '#FF9800',
+    width: '100%',
   },
   statusBannerText: {
     color: COLORS.warning || '#FF9800',

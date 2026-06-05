@@ -1,10 +1,12 @@
 package expo.modules.appblocker
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.provider.Settings
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
@@ -287,34 +289,71 @@ class ExpoAppBlockerModule : Module() {
   /**
    * Check if our AppBlockerAccessibilityService is currently enabled.
    *
-   * Primary: flag-file check (OEM-independent).
-   * Fallback: inspect Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES.
+   * Three-tier check, in order of reliability:
+   *  1. Flag file written by onServiceConnected()  (fastest, but cleared on service kill)
+   *  2. AccessibilityManager.getEnabledAccessibilityServiceList() (queries live running services)
+   *  3. Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES (persists across service restarts)
    */
   private fun isAccessibilityServiceEnabled(): Boolean {
     val context = appContext.reactContext ?: return false
 
-    // --- Primary: flag file written by onServiceConnected() ---
+    // --- Tier 1: flag file written by onServiceConnected() ---
     val flagFile = File(context.filesDir, AppBlockerAccessibilityService.SERVICE_FLAG_FILENAME)
     if (flagFile.exists()) {
       Log.d(TAG, "Service flag file found – service is running")
       return true
     }
 
-    // --- Fallback: Settings.Secure check ---
+    // --- Tier 2: AccessibilityManager live service list ---
+    try {
+      val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+      if (am != null) {
+        val services = am.getEnabledAccessibilityServiceList(
+          AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+        )
+        for (info in services) {
+          // info.id is like "ComponentInfo{com.detoxduel.app/expo.modules.appblocker.AppBlockerAccessibilityService}"
+          val serviceId = info.id ?: continue
+          if (serviceId.contains("AppBlockerAccessibilityService")) {
+            Log.d(TAG, "AccessibilityManager check: found our service in live list – $serviceId")
+            return true
+          }
+        }
+        Log.d(TAG, "AccessibilityManager check: our service not in live list (${services.size} services total)")
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "AccessibilityManager check failed", e)
+    }
+
+    // --- Tier 3: Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES ---
     return try {
       val enabledServices = Settings.Secure.getString(
         context.contentResolver,
         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
       ) ?: return false
 
-      // enabledServices looks like "expo.modules.appblocker/.AppBlockerAccessibilityService:com.other/com.OtherService"
-      val ourService = "${context.packageName}/${AppBlockerAccessibilityService::class.java.canonicalName}"
-      val found = enabledServices.contains(context.packageName) &&
-                  enabledServices.contains("AppBlockerAccessibilityService")
-      Log.d(TAG, "Settings.Secure fallback: found=$found  services=$enabledServices")
+      // enabledServices is colon-separated on most devices, but some tablet
+      // ROMs (Xiaomi/Huawei/Amazon Fire) use semicolons or mixed delimiters.
+      //   Standard:  "pkg/svc:pkg/svc2"
+      //   Xiaomi:    "pkg/svc;pkg/svc2"
+      //   Some ROMs: "pkg/svc pkg/svc2"
+      val ourPackage = context.packageName
+      val serviceName = "AppBlockerAccessibilityService"
+
+      val entries = enabledServices
+        .split("[:;]\\s*".toRegex())
+        .filter { it.isNotBlank() }
+
+      val found = entries.any { entry ->
+        entry.equals("$ourPackage/.$serviceName", ignoreCase = true) ||
+          entry.equals("$ourPackage/${AppBlockerAccessibilityService::class.java.canonicalName}", ignoreCase = true) ||
+          (entry.startsWith(ourPackage, ignoreCase = true) && entry.contains(serviceName, ignoreCase = true))
+      }
+
+      Log.d(TAG, "Settings.Secure check: found=$found  entries=$entries  raw=$enabledServices")
       found
     } catch (e: Exception) {
-      Log.e(TAG, "Settings.Secure fallback failed", e)
+      Log.e(TAG, "Settings.Secure check failed", e)
       false
     }
   }

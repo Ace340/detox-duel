@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { useFocusTimer } from './useFocusTimer';
 import {
   saveActiveSession,
@@ -27,7 +27,7 @@ interface UseFocusSessionReturn {
   currentSession: FocusSession | null;
   todayTotal: number;
   weeklyTotals: WeeklyScore[];
-  startSession: (durationMinutes: number, blockedApps: string[]) => void;
+  startSession: (durationMinutes: number, blockedApps: string[]) => Promise<boolean>;
   completeSession: () => void;
   cancelSession: () => void;
   isLoading: boolean;
@@ -53,20 +53,20 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
 
   /**
    * Start app blocking for the given package names.
-   * Silently fails on non-Android or when the native module is unavailable.
+   * Returns true if blocking started (or no apps to block).
+   * Returns false if permissions are missing — caller must NOT start the session.
    */
-  const startAppBlocking = useCallback(async (packageNames: string[], sessionId: string) => {
-    if (Platform.OS !== 'android' || packageNames.length === 0) return;
+  const startAppBlocking = useCallback(async (packageNames: string[], sessionId: string): Promise<boolean> => {
+    if (Platform.OS !== 'android' || packageNames.length === 0) return true;
 
     try {
       const status = await AppBlocker.getPermissionStatus();
       if (!status.allGranted) {
         console.warn(
           `[useFocusSession] Cannot start blocking — missing permissions: ` +
-          `overlay=${status.overlay}, accessibility=${status.accessibility}. ` +
-          `Session will run without app blocking.`
+          `overlay=${status.overlay}, accessibility=${status.accessibility}.`
         );
-        return;
+        return false;
       }
 
       await AppBlocker.startBlocking(packageNames, sessionId, {
@@ -75,8 +75,11 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
         userId,
         duelType: 'focus_session',
       });
+      return true;
     } catch (error) {
       console.error('[useFocusSession] Failed to start app blocking:', error);
+      // Blocking failure should not prevent the session — permission was granted
+      return true;
     }
   }, [userId]);
 
@@ -94,7 +97,16 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
   }, []);
 
   const startSession = useCallback(
-    async (durationMinutes: number, blockedApps: string[]) => {
+    async (durationMinutes: number, blockedApps: string[]): Promise<boolean> => {
+      // If apps are selected, blocking permissions MUST be granted first
+      if (blockedApps.length > 0 && Platform.OS === 'android') {
+        const sessionId = `local-${Date.now()}`;
+        const blockingOk = await startAppBlocking(blockedApps, sessionId);
+        if (!blockingOk) {
+          return false; // Permissions missing — session NOT started
+        }
+      }
+
       const now = new Date().toISOString();
       const session: FocusSession = {
         id: `local-${Date.now()}`,
@@ -110,10 +122,8 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
         setCurrentSession(session);
         resetTimer();
         startTimer();
-
-        // Start app blocking for the selected apps
-        await startAppBlocking(blockedApps, session.id);
       }
+      return true;
     },
     [userId, resetTimer, startTimer, startAppBlocking],
   );
@@ -219,8 +229,13 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
         startTimer();
 
         // Restore blocking for the active session's banned apps
+        // If permissions were revoked, blocking silently fails — session
+        // continues but apps won't be blocked.
         if (session.blocked_apps && session.blocked_apps.length > 0) {
-          await startAppBlocking(session.blocked_apps, session.id);
+          const ok = await startAppBlocking(session.blocked_apps, session.id);
+          if (!ok) {
+            console.warn('[useFocusSession] Could not restore blocking — permissions missing');
+          }
         }
       }
     }
