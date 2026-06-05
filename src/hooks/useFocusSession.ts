@@ -69,6 +69,9 @@ export function useFocusSession(userId: string): UseFocusSessionReturn {
         return false;
       }
 
+      // Request POST_NOTIFICATIONS on Android 13+ for foreground service
+      await AppBlocker.requestNotificationsPermission();
+
       await AppBlocker.startBlocking(packageNames, sessionId, {
         supabaseUrl: SUPABASE_URL,
         supabaseKey: SUPABASE_KEY,

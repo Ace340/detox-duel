@@ -50,6 +50,11 @@ async function tryStartBlocking(
   }
 
   try {
+    // Request POST_NOTIFICATIONS on Android 13+ so the foreground
+    // service notification can be shown. Without this, Android 14
+    // silently blocks the notification and may kill the service.
+    await AppBlocker.requestNotificationsPermission();
+
     await AppBlocker.startBlocking(packageNames, sessionId, {
       supabaseUrl: SUPABASE_URL,
       supabaseKey: SUPABASE_KEY,
@@ -132,6 +137,7 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
   const startSession = useCallback(async () => {
     // If apps are selected, permissions MUST be granted before starting
     if (selectedApps.length > 0 && Platform.OS === 'android') {
+      // Step 1: Check accessibility/overlay permissions
       const result = await tryStartBlocking(selectedApps, sessionId, user?.id ?? '');
 
       if (!result.ok) {
@@ -156,6 +162,29 @@ export default function FocusSessionScreen({ route, navigation }: Props) {
           ]
         );
         return; // Do NOT start the session
+      }
+
+      // Step 2: Check battery optimization — warn but allow user to continue
+      const isWhitelisted = await AppBlocker.isBatteryOptimizationWhitelisted();
+      if (!isWhitelisted) {
+        Alert.alert(
+          'Battery Optimization',
+          'Your device may kill the blocking service to save battery.\n\n' +
+          'We recommend whitelisting Detox Duel from battery optimization for reliable blocking.',
+          [
+            {
+              text: 'Skip',
+              style: 'cancel',
+            },
+            {
+              text: 'Optimize',
+              onPress: async () => {
+                await AppBlocker.requestBatteryOptimizationWhitelist();
+              },
+            },
+          ]
+        );
+        // User chose to skip — session still starts, just less reliable on aggressive tablets
       }
     }
 

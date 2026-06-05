@@ -146,6 +146,14 @@ export default function AccessibilityGuideScreen() {
     }
   }, []);
 
+  const handleOpenBatteryOptimization = useCallback(async () => {
+    try {
+      await AppBlocker.requestBatteryOptimizationWhitelist();
+    } catch (error) {
+      console.error('Failed to open battery optimization settings:', error);
+    }
+  }, []);
+
   const handleGoBack = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
@@ -271,6 +279,23 @@ export default function AccessibilityGuideScreen() {
             title="Allow & Confirm"
             description="A permission warning will appear. Tap 'Allow' or 'OK' to confirm, then come back and tap 'I've Enabled Both' below"
           />
+
+          <View style={styles.stepDivider} />
+
+          <StepCard
+            stepNumber={6}
+            emoji="🔋"
+            title="Disable Battery Optimization (Recommended)"
+            description="On some tablets (Xiaomi, Huawei, Lenovo), the system may kill the blocking service to save battery. Whitelist Detox Duel to keep it running reliably during focus sessions."
+          />
+
+          <TouchableOpacity
+            style={styles.inlineButton}
+            onPress={handleOpenBatteryOptimization}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.inlineButtonText}>🔋 Open Battery Optimization</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Tablet-Specific OEM Guide */}

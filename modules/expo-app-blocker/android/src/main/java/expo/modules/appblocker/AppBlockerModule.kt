@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityManager
@@ -94,7 +97,11 @@ class ExpoAppBlockerModule : Module() {
         config["duelType"]?.let { editor.putString(KEY_DUEL_TYPE, it.toString()) }
         config["isQuickDuel"]?.let { editor.putBoolean(KEY_IS_QUICK_DUEL, it as? Boolean ?: false) }
 
-        editor.apply()
+        // Use commit() (synchronous) instead of apply() (async) to guarantee
+        // the AccessibilityService sees the updated state immediately.
+        // apply() is asynchronous — the service could read stale data on
+        // fast device switches.  commit() blocks until write is flushed.
+        editor.commit()
 
         Log.d(TAG, "Blocking started for duel $duelId with ${packageNames.size} apps")
         promise.resolve(null)
@@ -126,8 +133,8 @@ class ExpoAppBlockerModule : Module() {
         editor.putBoolean(KEY_IS_BLOCKING, false)
         editor.putBoolean(KEY_IS_QUICK_DUEL, false)
 
-        // Apply changes asynchronously
-        editor.apply()
+        // Synchronous write — see startBlocking for rationale
+        editor.commit()
 
         Log.d(TAG, "Blocking stopped, all state cleared")
         promise.resolve(null)
@@ -282,6 +289,72 @@ class ExpoAppBlockerModule : Module() {
           "duelId" to null,
           "blockedApps" to emptyList<String>()
         ))
+      }
+    }
+
+    /**
+     * Check if the app is whitelisted from battery optimization.
+     *
+     * Critical for tablets with aggressive battery management (Xiaomi, Huawei, etc.)
+     * that kill background services to save power.
+     *
+     * @param promise Resolves with true if the app is whitelisted
+     */
+    AsyncFunction("isBatteryOptimizationWhitelisted") { promise: Promise ->
+      try {
+        val context = appContext.reactContext
+        if (context == null) {
+          promise.resolve(true) // Assume OK if no context
+          return@AsyncFunction
+        }
+
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val isWhitelisted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+
+        Log.d(TAG, "Battery optimization whitelisted: $isWhitelisted")
+        promise.resolve(isWhitelisted)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to check battery optimization status", e)
+        promise.resolve(true) // Assume OK on error
+      }
+    }
+
+    /**
+     * Open the system dialog requesting battery optimization whitelist.
+     *
+     * Shows a system dialog asking the user to allow the app to run
+     * without battery restrictions. This is essential on tablets with
+     * aggressive battery optimization (Xiaomi MIUI, Huawei EMUI, etc.).
+     *
+     * @param promise Resolves when the intent is launched
+     */
+    AsyncFunction("requestBatteryOptimizationWhitelist") { promise: Promise ->
+      try {
+        val context = appContext.reactContext
+        if (context != null) {
+          val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          }
+          context.startActivity(intent)
+        }
+        promise.resolve(null)
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to open battery optimization settings", e)
+        // Fallback: open general battery optimization settings
+        try {
+          val context = appContext.reactContext
+          if (context != null) {
+            val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+              addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(fallbackIntent)
+          }
+          promise.resolve(null)
+        } catch (fallbackError: Exception) {
+          Log.e(TAG, "Failed to open battery optimization fallback", fallbackError)
+          promise.reject("BATTERY_ERROR", "Failed to open battery optimization settings", fallbackError)
+        }
       }
     }
   }

@@ -1,4 +1,4 @@
-import { Platform, Linking, Alert } from 'react-native';
+import { Platform, Linking, Alert, PermissionsAndroid } from 'react-native';
 
 import { BlockingConfig, BlockingState } from '../../modules/expo-app-blocker/src/AppBlocker.types';
 
@@ -429,6 +429,96 @@ export class AppBlocker {
     } catch (error) {
       console.warn('[AppBlocker] Failed to check accessibility permission:', error);
       return false;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Notifications permission (Android 13+)
+  // ---------------------------------------------------------------
+
+  /**
+   * Request POST_NOTIFICATIONS runtime permission (Android 13+ / API 33+).
+   *
+   * Required for the foreground service notification. Without this,
+   * Android 14 silently blocks the notification and may kill the
+   * accessibility service.
+   *
+   * @returns true if granted (or already granted, or not needed)
+   */
+  static async requestNotificationsPermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    // POST_NOTIFICATIONS was introduced in API 33 (Android 13).
+    // On older versions, the manifest declaration is sufficient.
+    if (Platform.Version < 33) {
+      return true;
+    }
+
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS!
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (error) {
+      console.warn('[AppBlocker] Failed to request POST_NOTIFICATIONS:', error);
+      // Non-blocking — the service can still run, just no visible notification
+      return true;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Battery optimization
+  // ---------------------------------------------------------------
+
+  /**
+   * Check if the app is whitelisted from battery optimization.
+   *
+   * Critical for tablets with aggressive battery management
+   * (Xiaomi MIUI, Huawei EMUI, etc.) that kill background services.
+   *
+   * @returns true if the app is already whitelisted
+   */
+  static async isBatteryOptimizationWhitelisted(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true; // Not applicable on other platforms
+    }
+
+    const mod = await getAppBlockerModule();
+    if (!mod) {
+      return true; // Assume OK if module not available
+    }
+
+    try {
+      return await mod.default.isBatteryOptimizationWhitelisted();
+    } catch (error) {
+      console.warn('[AppBlocker] Failed to check battery optimization:', error);
+      return true; // Assume OK on error
+    }
+  }
+
+  /**
+   * Open the system dialog to request battery optimization whitelist.
+   *
+   * Shows a system dialog asking the user to allow the app to run
+   * without battery restrictions. Call this before starting a session
+   * if `isBatteryOptimizationWhitelisted()` returns false.
+   */
+  static async requestBatteryOptimizationWhitelist(): Promise<void> {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const mod = await getAppBlockerModule();
+    if (!mod) {
+      return;
+    }
+
+    try {
+      await mod.default.requestBatteryOptimizationWhitelist();
+    } catch (error) {
+      console.warn('[AppBlocker] Failed to request battery optimization whitelist:', error);
     }
   }
 }

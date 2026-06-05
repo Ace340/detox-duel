@@ -2,14 +2,20 @@ package expo.modules.appblocker
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Path
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,11 +29,16 @@ import java.io.IOException
  * AccessibilityService that detects when banned apps are opened
  * and launches a blocking overlay.
  *
- * This service runs in the background and monitors window state changes.
- * When a banned app is detected, it:
- * 1. Launches the BlockOverlayActivity to show the blocking screen
- * 2. Sends a Supabase update to mark the user as having opened the banned app
- * 3. For Quick Duels, this results in instant loss
+ * This service runs as a foreground service with a persistent notification
+ * to prevent Android from killing it on tablets with aggressive battery
+ * optimization (Xiaomi, Huawei, etc.).
+ *
+ * Lifecycle:
+ * 1. User enables the service in Accessibility Settings → onServiceConnected()
+ * 2. onServiceConnected() posts a foreground notification and writes a flag file
+ * 3. While blocking is active (SharedPreferences flag), monitors window changes
+ * 4. When a banned app is detected → launches BlockOverlayActivity + Supabase update
+ * 5. onDestroy() → removes notification and flag file
  */
 class AppBlockerAccessibilityService : AccessibilityService() {
 
@@ -59,6 +70,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     /** Name of the flag file written when the service is connected. */
     const val SERVICE_FLAG_FILENAME = "accessibility_service_running"
+
+    // Notification constants
+    private const val NOTIFICATION_CHANNEL_ID = "detox_duel_blocking"
+    private const val NOTIFICATION_CHANNEL_NAME = "App Blocking"
+    private const val FOREGROUND_NOTIFICATION_ID = 1001
   }
 
   // OkHttp client for Supabase requests
@@ -121,6 +137,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     // Write flag file so the module can detect this service is running
     writeServiceFlag()
+
+    // Start as foreground service with a persistent notification.
+    // This prevents Android from killing the service, which is critical
+    // on tablets with aggressive battery optimization (Xiaomi, Huawei, etc.)
+    startForegroundNotification()
   }
 
   override fun onDestroy() {
@@ -133,6 +154,96 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     // Remove flag file
     deleteServiceFlag()
   }
+
+  // ---------------------------------------------------------------
+  // Foreground notification
+  // ---------------------------------------------------------------
+
+  /**
+   * Create the notification channel (required Android 8+) and start
+   * this service as a foreground service with a persistent notification.
+   */
+  private fun startForegroundNotification() {
+    try {
+      createNotificationChannel()
+
+      val notification = buildForegroundNotification(
+        "Detox Duel is protecting your focus"
+      )
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        // Android 14+ REQUIRES the 3-parameter overload with foregroundServiceType.
+        // The 2-parameter overload throws ForegroundServiceStartNotAllowedException.
+        startForeground(
+          FOREGROUND_NOTIFICATION_ID,
+          notification,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        )
+      } else {
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+      }
+
+      Log.d(TAG, "Foreground service notification started")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to start foreground notification", e)
+      // Non-fatal — the service still works, just more vulnerable to being killed
+    }
+  }
+
+  /**
+   * Create the notification channel for Android 8.0+ (API 26+).
+   * Uses IMPORTANCE_LOW so the notification is visible but doesn't make sound.
+   */
+  private fun createNotificationChannel() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val channel = NotificationChannel(
+        NOTIFICATION_CHANNEL_ID,
+        NOTIFICATION_CHANNEL_NAME,
+        NotificationManager.IMPORTANCE_LOW
+      ).apply {
+        description = "Shows when Detox Duel is monitoring for banned apps"
+        setShowBadge(false)
+        lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+      }
+
+      val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      manager.createNotificationChannel(channel)
+    }
+  }
+
+  /**
+   * Build the foreground service notification.
+   *
+   * This notification is persistent while the accessibility service runs.
+   * Tapping it opens the main app.
+   */
+  private fun buildForegroundNotification(contentText: String): Notification {
+    // PendingIntent to open the main app when the notification is tapped
+    val launchIntent = packageManager.getLaunchIntentForPackage(MAIN_APP_PACKAGE)
+    val pendingIntent = launchIntent?.let {
+      PendingIntent.getActivity(
+        this,
+        0,
+        it,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+    }
+
+    return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+      .setContentTitle("Detox Duel")
+      .setContentText(contentText)
+      .setSmallIcon(android.R.drawable.ic_lock_lock)
+      .setOngoing(true)
+      .setSilent(true)
+      .setContentIntent(pendingIntent)
+      .setPriority(NotificationCompat.PRIORITY_LOW)
+      .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .build()
+  }
+
+  // ---------------------------------------------------------------
+  // Blocking state helpers
+  // ---------------------------------------------------------------
 
   /**
    * Check if blocking is currently active
@@ -210,6 +321,10 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     return prefs.getString(PREF_USER_ID, null)
   }
 
+  // ---------------------------------------------------------------
+  // Blocked app handling
+  // ---------------------------------------------------------------
+
   /**
    * Handle when a blocked app is detected
    */
@@ -227,11 +342,27 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     Log.d(TAG, "Handling blocked app: $packageName (duel: $duelId, type: $duelType, quick: $isQuick)")
 
+    // Update the foreground notification to show which app was blocked
+    updateForegroundNotification("Blocked: $appName — stay focused!")
+
     // Launch the blocking overlay
     launchBlockOverlay(packageName, appName, duelId ?: "", duelType ?: "", isQuick)
 
     // Send Supabase update to mark that the user opened a banned app
     duelId?.let { sendSupabaseUpdate(it, packageName) }
+  }
+
+  /**
+   * Update the foreground notification text without recreating it.
+   */
+  private fun updateForegroundNotification(text: String) {
+    try {
+      val notification = buildForegroundNotification(text)
+      val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      manager.notify(FOREGROUND_NOTIFICATION_ID, notification)
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed to update foreground notification", e)
+    }
   }
 
   /**
@@ -366,6 +497,10 @@ class AppBlockerAccessibilityService : AccessibilityService() {
       Log.e(TAG, "Failed to go to home screen", e)
     }
   }
+
+  // ---------------------------------------------------------------
+  // Flag file management
+  // ---------------------------------------------------------------
 
   /**
    * Write a flag file to signal that this accessibility service is running.
